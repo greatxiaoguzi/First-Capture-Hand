@@ -182,7 +182,7 @@ I (..\head\delay.h)(0x5912CF51)
 I (..\head\usart.h)(0x595479B6)
 I (D:\Keil_v5\ARM\ARMCC\include\stdio.h)(0x55DB2B76)
 F (..\lib\四通道驱动板.lib)(0x595CC17E)()
-F (..\App\MotionDispatch.c)(0x5A094507)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\motiondispatch.o --omf_browse .\objects\motiondispatch.crf --depend .\objects\motiondispatch.d)
+F (..\App\MotionDispatch.c)(0x5A096F52)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\motiondispatch.o --omf_browse .\objects\motiondispatch.crf --depend .\objects\motiondispatch.d)
 I (..\App\MotionDispatch.h)(0x5A094CB5)
 I (..\head\sys.h)(0x5912DB8A)
 I (..\user\stm32f10x.h)(0x4D783CB4)

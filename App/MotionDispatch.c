@@ -3009,7 +3009,7 @@ void CAN_Cmd_Haandle(ExecuteCmd_TypeDf *ExecuteCmdData)
 		}
 	}
 }
-#if DEBUG_MODE == 1
+#if DEBUG_MODE == 1     
 /********************************************************
 	功能：		抓杯手工作位参数校准整体
 	输入参数：	CAN数据帧
