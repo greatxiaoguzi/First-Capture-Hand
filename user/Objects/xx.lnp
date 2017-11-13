@@ -1,0 +1,11 @@
+--cpu Cortex-M3
+".\objects\main.o"
+".\objects\main_app.o"
+".\objects\pct_app.o"
+".\objects\crc16.o"
+"..\lib\四通道驱动板.lib"
+".\objects\motiondispatch.o"
+--strict --scatter ".\Objects\xx.sct"
+--summary_stderr --info summarysizes --map --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list ".\Listings\xx.map" -o .\Objects\xx.axf

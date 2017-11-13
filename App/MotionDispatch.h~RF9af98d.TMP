@@ -1,0 +1,695 @@
+#include "sys.h"
+#include "public.h"
+#include "can.h"
+#include "em_sw.h"
+
+
+#define RUN_MODE     0   //运行模式
+#define DEBUG_MODE   1   //调试模式
+#define TEST_MODE    0   //测试模式
+
+
+//固定参量
+#define EEPROM_CFG_FLAG_ADDR                  	0X00    //保存状态标记的起始地址
+#define EEPROM_FOR_CUP_DATA_ADDR          		0X06    //杯盘号，当前抓杯数，当前杯位坐标，混匀器混匀时间等起始地址
+#define EEPROM_FOR_MACHINECOORDINATE_ADDR 		0X1E    //30 byte机器工作位坐标起始地址
+#define EEPROM_FOR_BELT_CORR_PARA_ADDR           0X96    //150Byte
+
+#define PI         				3.14159265358
+#define WISPY_VALUE             0.3    	//工作位测试最小移动间距离
+#define BELT_ADJ_VALUE         	0.01    	//带轮参数微调
+#define BELT_DIA_X  			18     	//带轮直径(单位:mm)
+#define BELT_DIA_Y				18
+#define BELT_DIA_Z				11.07
+#define CUP_TOTAL_NUM     		336  	//杯子总数量
+#define WASTE_MAX_NUM     		168   	//一个垃圾桶最大可容纳的杯子数量
+#define CUP_SPACE               12   	//杯间距(单位：mm)
+#define X_DIR_CUP_NUM           8     	//X方向杯子数量(单位：个)
+#define Y_DIR_CUP_NUM			14    	//Y方向杯子数量(单位：个)
+/*********************************************************/
+#define CanDataHandle     		can_flag
+
+//第一抓杯手所用所有电磁阀宏替换
+#define  SW_FINGER_ENABLE  		EM_SW_OUT(EM_SW_CH_A,EM_SW_STATUS_ON)   //SW_CtrlPara(Para) 使能手指电磁铁(后面可以用参数控制调节函数来替换)
+#define  SW_FINGER_DISABLE 		EM_SW_OUT(EM_SW_CH_A,EM_SW_STATUS_OFF)  //SW_CtrlPara(Para) 失能手指电磁铁(后面可以用参数控制调节函数来替换)
+#define  SW_CABIN_ENABLE     	EM_SW_OUT(EM_SW_CH_B,EM_SW_STATUS_ON)   //使能抽屉电磁铁
+#define  SW_CABIN_DISABLE    	EM_SW_OUT(EM_SW_CH_B,EM_SW_STATUS_OFF)  //失能抽屉电磁铁
+//第一抓杯手所用光电开关宏替换
+#define  PCT_X_AXIS      		PCT1
+#define  PCT_Y_AXIS      		PCT2
+#define  PCT_Z_AXIS      		PCT3
+#define  PCT_MIX      			PCT4
+#define  PCT_FINGER         	PCT5
+#define  PCT_WASTE1       		PCT6
+#define  PCT_WASTE2       		PCT7
+#define  PCT_CABIN         		PCT8
+
+#define  ENCODER_X_AXIS         PCT_ENCODER_NO
+#define  ENCODER_Y_AXIS			PCT_ENCODER_NO
+/********************************************************/
+#define UNLOAD_RISE_TIME          100 		//下降后到卸杯上升时间的时间间隔
+#define Z_UP_MAX_COORD            -3 		//Z轴上升到指定坐标(0,0,3)(单位:mm)
+#define Z_PCT_ZERO_RUN_PULSE      (8*9)    //触发到光电开关后需要减速运行的脉冲数 
+#define Y_PCT_ZERO_RUN_PULSE      (8*9)
+#define X_PCT_ZERO_RUN_PULSE      (8*9)
+#define MIX_PCT_ZERO_RUN_PULSE    (8*8)
+#define Z_PER_FP_PULSE_NUM        8      	//每个频率点要走得到脉冲数
+#define Y_PER_FP_PULSE_NUM        8 
+#define X_PER_FP_PULSE_NUM        8 
+#define MIX_PER_FP_PULSE_NUM      8    
+
+#define Z_LARGE_ACC_PULSE 		  232    	//加速阶段要执行的脉冲数
+#define Z_LARGE_DEC_PULSE		  232    	//减速阶段要执行的脉冲数
+#define Y_LARGE_ACC_PULSE 		  472    	//加速阶段要执行的脉冲数
+#define Y_LARGE_DEC_PULSE		  472    	//减速阶段要执行的脉冲数
+#define X_LARGE_ACC_PULSE 		  472    	//加速阶段要执行的脉冲数
+#define X_LARGE_DEC_PULSE		  472    	//减速阶段要执行的脉冲数
+#define MIX_LARGE_ACC_PULSE       472    	//混匀盘加速阶段需要执行的脉冲数
+#define MIX_LARGE_DEC_PULSE		  472    	//混匀盘减速阶段需要执行的脉冲数
+
+#define Z_SHORT_ACC_PULSE 		  72    	//加速阶段要执行的脉冲数
+#define Z_SHORT_DEC_PULSE		  72    	//减速阶段要执行的脉冲数
+#define Y_SHORT_ACC_PULSE 		  72    	//加速阶段要执行的脉冲数
+#define Y_SHORT_DEC_PULSE		  72    	//减速阶段要执行的脉冲数
+#define X_SHORT_ACC_PULSE 		  72    	//加速阶段要执行的脉冲数
+#define X_SHORT_DEC_PULSE		  72    	//减速阶段要执行的脉冲数
+#define MIX_SHORT_ACC_PULSE       96    	//混匀盘加速阶段需要执行的脉冲数
+#define MIX_SHORT_DEC_PULSE		  96 
+
+#define MIX_DEFAULT_MAX_PULSE     9999999	//混匀电机最大运行的脉冲数(最后相当于时间)
+
+
+#define CAN_MAIN_MACHINE_ID       0X00
+#define REPORT_HARD_STAUS         0XFA
+#define REPORT_PARA_STAUS         0XFB
+
+typedef enum
+{
+	FALSE =0,
+	TRUE = 1,
+}Status_TypeDef;
+//机器未调节的时候默认的工作位坐标值
+typedef struct
+{
+	struct
+	{
+		u16 Cup_Space;   //杯间距
+		float Cup_Dish1_Start_X;
+		float Cup_Dish1_Start_Y;
+		float Cup_Dish2_Start_X;
+		float Cup_Dish2_Start_Y;
+		float Cup_Dish3_Start_X;
+		float Cup_Dish3_Start_Y;
+		float Cup_Dish_Z;
+	}CupDish_Coord;
+	struct
+	{
+		float Hatch_Dish_In_X;
+		float Hatch_Dish_In_Y;
+		float Hatch_Dish_Out_X;
+		float Hatch_Dish_Out_Y;
+		float Hatch_Dish_Z;
+	}HatchDish_Coord;
+	struct
+	{
+		float Mix_Dish_X;	
+		float Mix_Dish_Y;	
+		float Mix_Dish_Z;
+	}MixDish_Coord;
+	struct
+	{
+		float Waste_Dish1_X;
+		float Waste_Dish1_Y;
+		float Waste_Dish1_Z;
+		float Waste_Dish2_X;
+		float Waste_Dish2_Y;
+		float Waste_Dish2_Z;
+	}WasteDish_Coord;
+}DefaultWorkStation_Coord_TypeDef;
+//工程调试时的修正参量
+typedef struct 
+{
+	float X_OffsetVal;
+	float Y_OffsetVal;
+	float Z_OffsetVal;
+	u32   MixRunningTime;			//混匀器混匀时间
+}DebugPara_TypeDef;
+//工作位固定坐标,基于相对坐标系(单位：坐标)
+typedef struct
+{
+	struct
+	{
+		u16 Cup_Space;   //杯间距
+		float Cup_Dish1_Start_X;
+		float Cup_Dish1_Start_Y;
+		float Cup_Dish2_Start_X;
+		float Cup_Dish2_Start_Y;
+		float Cup_Dish3_Start_X;
+		float Cup_Dish3_Start_Y;
+		float Cup_Dish_Z;
+	}CupDish_Coord;
+	struct
+	{
+		float Hatch_Dish_In_X;
+		float Hatch_Dish_In_Y;
+		float Hatch_Dish_Out_X;
+		float Hatch_Dish_Out_Y;
+		float Hatch_Dish_Z;
+	}HatchDish_Coord;
+	struct
+	{
+		float Mix_Dish_X;	
+		float Mix_Dish_Y;	
+		float Mix_Dish_Z;
+	}MixDish_Coord;
+	struct
+	{
+		float Waste_Dish1_X;
+		float Waste_Dish1_Y;
+		float Waste_Dish1_Z;
+		float Waste_Dish2_X;
+		float Waste_Dish2_Y;
+		float Waste_Dish2_Z;
+	}WasteDish_Coord;
+//	struct
+//	{
+//		float X_Axis_Para;
+//		float Y_Axis_Para;
+//		float Z_Axis_Para;
+//	}ErrorCorrPara;  //带轮参数修正
+}WorkStation_Coord_TypeDef;
+//孵育盘内外圈层
+typedef enum
+{
+	OUT_CIRCLE = 0,  //内圈
+	IN_CIRCLE = 1,	 //外圈
+}HatchCircleLayer;
+//设备名
+typedef enum
+{
+	DEVICE_UNIT_X 		= MOTOR_1,
+	DEVICE_UNIT_Y 		= MOTOR_2,
+	DEVICE_UNIT_Z 		= MOTOR_3,
+	DEVICE_UNIT_MIX 	= MOTOR_4,  //混匀泵电机
+	DEVICE_UNIT_FINGER 	= 4,     //抓杯手指电磁铁
+	DEVICE_UNIT_CABIN  	= 5,		//抽屉开启电磁铁
+	DEVICE_TOTAL       	= 6,     //整机系统
+}DeviceUnit_TypeDef;
+//盘单元间执行动作枚举
+typedef enum
+{
+	Z_NO_MOTION=0,
+	Z_INIT,    //初始化抓杯臂
+	Z_WISPY_ADJUST,
+	Z_UP,      //悬臂抬起
+	Z_DOWN_TO_CUPDISH,//悬臂下降到杯盘
+	Z_DOWN_TO_HATCH,//悬臂下降到孵育盘
+	Z_DOWN_TO_MIX,//悬臂下降到混匀盘
+	Z_DOWN_TO_WASTE,//悬臂下降到废料盘
+	Z_ADJ_BELT_PARA,
+	FINGER_NO_MOTION,
+	FINGER_INIT,
+	FINGER_OPEN,//手指打开
+	FINGER_CLOSE,//手指关闭
+	FINGER_UNLOAD_CUP,
+	X_NO_MOTION,
+	X_INIT,
+	X_WISPY_ADJUST,
+	X_TO_CUP_DISH,
+	X_TO_HATCH_IN,
+	X_TO_HATCH_OUT,
+	X_TO_MIX,
+	X_TO_WASTE1,
+	X_TO_WASTE2,
+	X_ADJ_BELT_PARA,
+	Y_NO_MOTION,
+	Y_INIT,
+	Y_WISPY_ADJUST,
+	Y_TO_CUP_DISH,
+	Y_TO_HATCH_IN,
+	Y_TO_HATCH_OUT,
+	Y_TO_MIX,
+	Y_TO_WASTE1,
+	Y_TO_WASTE2,
+	Y_ADJ_BELT_PARA,
+	MIX_NO_MOTION,
+	MIX_INIT,
+	MIX_START_RUNING,  //混匀盘开始运行
+	CABIN_INIT,
+	CABIN_ELECTM_ENABLE,     //使能抽屉电磁铁
+	CABIN_ELECTM_DISABLE,    //不使能抽屉电磁铁
+}MotionCmd_TypeDef;
+//CAN总线指令组合动作指令
+typedef enum
+{
+	//非动作指令
+	CMD_COM_FAULT_HANDLE_RESULT   = 0X01,  			//中位机故障处理反馈的结果
+	//动作指令，
+	CMD_COM_MACHINE_WHOLE_RESET   = 0X10,  			//机器整体复位
+	
+	CMD_COM_ORIGN_TO_CAPTUREP_POS = 0X20,
+	CMD_COM_ORIGN_TO_HATCH        = 0X21,
+	CMD_COM_CUP_TO_HATCH 		  = 0X22,
+	CMD_COM_HATCH_TO_CUP 		  = 0X23,
+	CMD_COM_HATCH_TO_MIX 		  = 0X24,
+	CMD_COM_MIX_TO_HATCH 		  = 0X25,
+	CMD_COM_HATCH_TO_WASTE 		  = 0X26,
+	CMD_COM_WASTE_TO_HATCH 		  = 0X27,
+	
+	CMD_COM_OPEN_CABIN      	  = 0X30,
+	CMD_COM_CLOSE_CABIN     	  = 0X31,
+	
+	CMD_COM_MIX_RUNNING           = 0X40,
+	CMD_COM_UNLOAD_CUP            = 0X41,
+	
+	CMD_SINGLE_X_TO_CUP           = 0X50,
+	CMD_SINGLE_X_TO_HATCHIN       = 0X51,
+	CMD_SINGLE_X_TO_HATCHOUT      = 0X52,
+	CMD_SINGLE_X_TO_MIX           = 0X53,
+	CMD_SINGLE_X_TO_WASTE1        = 0X54,
+	CMD_SINGLE_X_TO_WASTE2        = 0X55,
+	CMD_SINGLE_Y_TO_CUP           = 0X60,
+	CMD_SINGLE_Y_TO_HATCHIN       = 0X61,
+	CMD_SINGLE_Y_TO_HATCHOUT      = 0X62,
+	CMD_SINGLE_Y_TO_MIX           = 0X63,
+	CMD_SINGLE_Y_TO_WASTE1        = 0X64,
+	CMD_SINGLE_Y_TO_WASTE2        = 0X65, 
+	CMD_SINGLE_Z_UP               = 0X70,
+	CMD_SINGLE_Z_TO_CUP			  = 0X71,
+	CMD_SINGLE_Z_TO_HATCH         = 0X72,
+	CMD_SINGLE_Z_TO_MIX           = 0X73,
+	CMD_SINGLE_Z_TO_WASTE         = 0X74,
+	CMD_SINGLE_FINGEROPEN         = 0X80,
+	
+	CMD_VERSION_INQUIRE           = 0XF0,    		//版本查询
+	CMD_REPORT_HARD_STAUS         = 0XF1,
+	CMD_REPORT_PARA_STAUS         = 0XF2,
+	CMD_SINGLE_AXIS_WASPY_ADJUST  = 0XF3,
+	CMD_BELT_CORR_PARAQ           = 0XF4
+}CombineMotion_TypeDef;
+#if DEBUG_MODE == 1
+//工作位调试时指令动作
+typedef enum
+{
+	DEBUG_CMD_COMRESET             = 0x00,
+	DEBUG_CMD_ORIGIN_TO_CUP   	   = 0X01,
+	DEBUG_CMD_ORIGIN_TO_HATCHIN	   = 0X02,
+	DEBUG_CMD_ORIGIN_TO_HATCHOUT   = 0X03,
+	DEBUG_CMD_ORIGIN_TO_MIX		   = 0X04,
+	DEBUG_CMD_ORIGIN_TO_WASTE1	   = 0X05,
+	DEBUG_CMD_ORIGIN_TO_WASTE2	   = 0X06,
+}DebugCmdWorkStation_TypeDef;
+#endif
+//#pragma anon_unions
+//组合动作调用序列号
+typedef enum
+{
+	COM_NO_MOTION = 0,
+	COM_ORIGN_TO_CAPTURE,
+	COM_ORIGN_TO_HATCHIN,
+	COM_ORIGN_TO_HATCHOUT,
+	C0M_CUP_TO_HATCHIN,
+	C0M_CUP_TO_HATCHOUT,
+	C0M_HATCH_TO_CUP,
+	C0M_HATCH_TO_MIX,
+	C0M_MIX_TO_HATCHIN,
+	C0M_MIX_TO_HATCHOUT,
+	C0M_HATCH_TO_WASTE,
+	C0M_WASTE_TO_HATCHIN,
+	C0M_WASTE_TO_HATCHOUT,
+	COM_OPEN_CABIN,
+	COM_CLOSE_CABIN,
+	COM_MIX_RUNNING,
+	COM_UNLOAD_CUP,
+	#if DEBUG_MODE == 1
+	DEBUG_COM_ORIGN_TO_CAPTURE,
+	DEBUG_COM_ORIGN_TO_HATCHIN,
+	DEBUG_COM_ORIGN_TO_HATCHOUT,
+	DEBUG_COM_ORIGN_TO_MIX,
+	DEBUG_COM_ORIGN_TO_WASTE1,
+	DEBUG_COM_ORIGN_TO_WASTE2,
+	#endif
+}COM_ListTypeDef;
+//硬件状态结构
+typedef struct
+{
+	union
+	{
+		u16 AllStatus;
+		struct
+		{
+			u8 Pct_X:		1;
+			u8 Pct_Y:		1;
+			u8 Pct_Z:		1;
+			u8 Pct_Mix:		1;
+			u8 Pct_Finger:	1;
+			u8 Pct_Waste1:	1;
+			u8 Pct_Waste2:	1;
+			u8 Pct_Cabin:	1;
+			u8 Ect_Finger:	1;
+			u8 EctCabin_:	1;
+			u8 Ect_Reserve:	6;
+		}UnitStatus;
+	}HardStatus;   //硬件状态
+	struct
+	{
+		u16 CurrCaptureCupNum;  //当前抓取的杯子数
+		u16 CurrThrowCupNum;    //当前扔掉的杯子数
+		COM_ListTypeDef CurrExecuteMotion;  //当前执行的动作
+	}ExecutePara;
+}SysStatusInquiry_TypeDef;  			//系统状态查询
+//中位机反馈的故障的级别，是否停止当前动作还是继续下一步的动作继续执行
+typedef enum
+{
+	LEVEL_LOWEST        = 0X00,         //级别最低，可以继续执行
+	STOP_LEVLE 			= 0X01,  	 	//停止
+	PAUSE_LEVEL 		= 0X02,			//暂停
+	RERESET_LEVEL 		= 0X03,			//重新复位
+	WAIT_MOTION_FINSH 	= 0X04,  		//等待当前动作完成
+	
+}FaultLevel_TypeDef;
+//错误码列表管理
+typedef enum
+{
+	REC_ACK= 0,
+	REC_NACK,
+	FIN_ACK,
+	VERSION_INQUIE,
+	FAULT_RESET_X_AXIS,
+	FAULT_RESET_Y_AXIS,
+	FAULT_RESET_Z_AXIS,
+	FAULT_RESET_MIX,
+	FAULT_ORIGIN_TO_CAPTURECUP,
+	FAULT_ORIGIN_TO_HATCHIN,
+	FAULT_ORIGIN_TO_HATCHOUT,
+	
+	FAULT_CUP_TO_HATCHIN,
+	FAULT_CUP_TO_HATCHOUT,
+	FAULT_HATCH_TO_CUP,
+	FAULT_HATCH_TO_MIX,
+	FAULT_MIX_TO_HATCHIN,
+	FAULT_MIX_TO_HATCHOUT,
+	FAULT_HATCH_TO_WASTE,
+	FAULT_WASTE_TO_HATCHIN,
+	FAULT_WASTE_TO_HATCHOUT,
+	FAULT_ENABLE_CABIN,
+	FAULT_MIX_RUNNING,
+	FAULT_X_TO_CAPTURE,
+	FAULT_X_TO_HATCHIN,
+	FAULT_X_TO_HATCHOUT,
+	FAULT_X_TO_MIX,
+	FAULT_X_TO_WASTE1,
+	FAULT_X_TO_WASTE2,
+	FAULT_Y_TO_CAPTURE,
+	FAULT_Y_TO_HATCHIN,
+	FAULT_Y_TO_MIX,
+	FAULT_Y_TO_WASTE1,
+	FAULT_Y_TO_WASTE2,
+	FAULT_Z_TO_WAIT_POST,
+	FAULT_Z_TO_CUP,
+	FAULT_Z_TO_HATCH,
+	FAULT_Z_TO_MIX,
+	FAULT_Z_TO_WASTE,
+	FAULT_FINGER_OPEN,
+}AnswerCode_TypeDef;
+//出故障的机械单元
+//应答模式
+typedef struct
+{
+	u8 *Rec_Ack;  //接收应答
+	u8 *Rec_Nack; //不响应
+	u8 *Fin_Ack;  //完成应答
+	struct
+	{
+		 u8 *Reserve;
+		 u8 *FAULT_RESET_X_AXIS;
+		 u8 *FAULT_RESET_Y_AXIS;
+		 u8 *FAULT_RESET_Z_AXIS;
+		 u8 *FAULT_RESET_MIX;
+		 u8 *FAULT_ORIGIN_TO_CAPTURECUP;
+		 u8 *FAULT_ORIGIN_TO_HATCHIN;
+		 u8 *FAULT_ORIGIN_TO_HATCHOUT;
+		 u8 *FAULT_CUP_TO_HATCHIN;
+		 u8 *FAULT_CUP_TO_HATCHOUT;
+		 u8 *FAULT_HATCH_TO_CUP;
+		 u8 *FAULT_HATCH_TO_MIX;
+		 u8 *FAULT_MIX_TO_HATCHIN;
+		 u8 *FAULT_MIX_TO_HATCHOUT;
+		 u8 *FAULT_HATCH_TO_WASTE;
+		 u8 *FAULT_WASTE_TO_HATCHIN;
+		 u8 *FAULT_WASTE_TO_HATCHOUT;
+		 u8 *FAULT_ENABLE_CABIN;
+		 u8 *FAULT_MIX_RUNNING;
+		 u8 *FAULT_X_TO_CAPTURE;
+		 u8 *FAULT_X_TO_HATCHIN;
+		 u8 *FAULT_X_TO_HATCHOUT;
+		 u8 *FAULT_X_TO_MIX;
+		 u8 *FAULT_X_TO_WASTE1;
+		 u8 *FAULT_X_TO_WASTE2;
+		 u8 *FAULT_Y_TO_CAPTURE;
+		 u8 *FAULT_Y_TO_HATCHIN;
+		 u8 *FAULT_Y_TO_HATCHOUT;
+		 u8 *FAULT_Y_TO_MIX;
+		 u8 *FAULT_Y_TO_WASTE1;
+		 u8 *FAULT_Y_TO_WASTE2;
+		 u8 *FAULT_Z_TO_WAIT_POST;
+		 u8 *FAULT_Z_TO_CUP;
+		 u8 *FAULT_Z_TO_HATCH;
+		 u8 *FAULT_Z_TO_MIX;
+		 u8 *FAULT_Z_TO_WASTE;
+		 u8 *FAULT_FINGER_OPEN;
+	}ErrorCode;
+}AnswerCodeBuf_TypeDef;
+//XYZ和抓杯手指在组合状态的情况下运动情况的完成情况
+typedef union
+{
+	u16 MotionStatus;
+	struct
+	{
+		u8 Stage1:1;
+		u8 Stage2:1;
+		u8 Stage3:1;
+		u8 Stage4:1;
+		u8 Stage5:1;
+		u8 Stage6:1;
+		u8 Stage7:1;
+		u8 Stage8:1;
+		u8 Stage9:1;
+		u8 Stage10:1;
+		u8 Stage11:1;
+		u8 Stage12:1;
+		u8 Stage13:1;
+		u8 Stage14:1;
+		u8 Stage15:1;
+		u8 Stage16:1;
+	}MotionStage;
+}CombineStage;
+//故障处理缓存数据结构
+//占用字节数;8Byte
+/*typedef union
+{
+	u8 FaultBuf[8];
+	struct
+	{
+		u32 FaultDetc1;
+		u32 FaultDetc2;
+	}FaultDetect;
+}FaultBuff_TypeDef;*/
+//故障处理缓存结构体
+//开机后记录的上次关机后的最后一簇抓杯后的位置
+typedef struct
+{
+	u8 CupNum;
+	u16 CurrentCaptureNum;  //当前已经抓取的杯子数
+	float X_Coord;
+	float Y_Coord;
+	u32   MixRunningTime;
+	
+}EepromPara_TpyeDef;
+//机器相对原点坐标
+typedef struct
+{
+	u32  Machine_Absolute_Origin_X;  //绝对原点坐标(机械坐标系)
+	u32  Machine_Absolute_Origin_Y;
+	u32  Machine_Absolute_Origin_Z;
+	float Machine_Relative_Origin_X;     //相对原点坐标(软件坐标系)
+	float Machine_Relative_Oringin_Y;
+	float Machine_Relative_Oringin_Z;
+}Machine_Coord_TypeDef;
+//抓杯手指坐标
+typedef struct 
+{
+	struct
+	{
+	    float Fingrer_Coord_X;
+		float Fingrer_Coord_Y;
+		float Fingrer_Coord_Z;
+	}Curr_Coord;  //当前运行坐标
+	struct
+	{
+		float Fingrer_Coord_X;
+		float Fingrer_Coord_Y;
+		float Fingrer_Coord_Z;
+	}Target_Coord;
+}CaptureFinger_Coord_TypeDef;
+//抓杯手指运行到目标位置计算出来的脉冲数
+typedef struct
+{
+	MOTOR_DIR X_Dir;  	//方向定义
+	MOTOR_DIR Y_Dir;
+	MOTOR_DIR Z_Dir;
+	u32 Finger_Pulse_X;  //脉冲
+	u32 Finger_Pulse_Y;
+	u32 Finger_Pulse_Z;
+}CaptureFingerPulse_TypeDef;
+//动作调用参数配置
+typedef struct
+{
+	MotionCmd_TypeDef status;//电机运动状态
+	MOTOR_DIR direction;	//电机运动方向
+	u32 acc_pulse;			//加Q速段有多少个脉冲
+	u32 dec_pulse;			//减速段有多少个脉冲
+	u32 const_pulse;		//匀速段有多少个脉冲
+	u8 multiple;			//单个频点有多少个脉冲
+	PCT_NUMBER pct_number;
+	u16 pct_zero_run_pulse;
+	PCT_ENCODER_NUMBER pct_encoder_number;
+}MotionParaConfig_TypeDef;
+
+//第一抓杯手调度单元功能函数指针
+typedef void (*DispatchUnitExecuteFun_TypeDef[])(MotionCmd_TypeDef Axis_Motion,u32 ExecutePara,MOTOR_DIR Dir); 
+typedef void (*ExecuteMotionCANCmd_TypeDef[])(void);  //CAN指令组合动作
+//抓杯手指所用动作函数指针
+typedef void (*FingerOpen_TypeDef)(PCT_NUMBER Pct_Num);  //抓杯手指打开
+typedef void (*Z_Up_TypeDef)(void);//Z轴上升
+typedef void (*Z_Down_To_WorkStation_TypeDef)(MotionCmd_TypeDef WorkStation);//Z轴下降到工作位
+typedef void (*XY_To_WorkStation_TypeDef)(MotionCmd_TypeDef X_WorkStation,MotionCmd_TypeDef Y_WorkStation,float X_Coord,float Y_Coord);//XY轴运行到工作位
+typedef void (*Mix_StartRun_TypeDef)(MotionCmd_TypeDef Mix_WorkStation);
+//抓杯手指所用到的所有子模块函数指针结构体(模块包)
+typedef struct
+{
+	FingerOpen_TypeDef  To_Finger_Open;
+	Z_Up_TypeDef To_Z_Up;
+	Z_Down_To_WorkStation_TypeDef To_Z_Down_To_WorkStation;
+	XY_To_WorkStation_TypeDef To_XY_To_WorkStation;
+	Mix_StartRun_TypeDef To_Mix_StartRun;
+}XYZFinger_Motion;
+void SaveCupDataToEEprom(void);
+void SaveMachhineCoordinateDataToEeprom(void);
+void SaveBeltPara(void);
+void BeltParaCorr(DeviceUnit_TypeDef MotorSel,u8 TrnsmuDir);
+void SysParaInitConfig(void);
+void SysInit(void);
+//void MotionParaCopnfig(MotionParaConfig_TypeDef *ConfigPara,MOTOR_CHIP_SELECT sel);
+void MotorMotionConfig_Init(MotionParaConfig_TypeDef *ConfigPara,DeviceUnit_TypeDef sel,u16 *AccTab,u16 *DecTab);
+
+void ReportHardwaretatus(void);
+void ResetParaInit(DeviceUnit_TypeDef Axis);
+void AxisCoordConfig(void);
+void GetCaptureCupOffset(u16 CupNum,u16 *XOffsetCoord,u16 *YOffsetCoord);
+CaptureFingerPulse_TypeDef CalRouteTotalPulse(CaptureFinger_Coord_TypeDef *Finger_Coord);
+
+void Z_MotorParaConfig(MotionCmd_TypeDef Z_Motion,u32 Z_TargetPulse,MOTOR_DIR Dir);
+void Y_MotorParaConfig(MotionCmd_TypeDef Y_Motion,u32 Y_TargetPulse,MOTOR_DIR Dir);
+void X_MotorParaConfig(MotionCmd_TypeDef X_Motion,u32 X_TargetPulse,MOTOR_DIR Dir);
+void MixMotor_ParaConfig(MotionCmd_TypeDef MixMoition,u32 Mix_TargetPulse,MOTOR_DIR Dir);
+
+void CabinorEnable(MotionCmd_TypeDef ElectmStatus);
+void FingerOpen(PCT_NUMBER Pct_Num);
+void Z_Up(void);
+void Z_Down_To_WorkStation(MotionCmd_TypeDef WorkStation);
+void XY_To_WorkStation(MotionCmd_TypeDef X_WorkStation,MotionCmd_TypeDef Y_WorkStation,float X_Coord,float Y_Coord);
+void Mix_StartRun(MotionCmd_TypeDef Mix_WorkStation);
+
+void Wispy_Adjust(Package_Info *unpack_data,DeviceUnit_TypeDef MotorSel,u8 Dir);
+void AdjustBeltCorrPara(DeviceUnit_TypeDef MotorSel,u8 CupNum);
+void CalMixMaxPoint(u16 AllTime);
+
+
+void ComMotin_AssistHandle(void);
+void ClearMotionList(void);
+void FaultDetect(void);
+
+//CAN总线组合动作调度
+void Go_Mix_Running(void);
+void Go_Orign_To_CaptureCup(void);
+void Go_Orign_To_HatchIn(void);
+void Go_Orign_To_HatchOut(void);
+void Go_Cup_To_HatchIn(void);
+void Go_Cup_To_HatchOut(void);
+void Go_Hatch_To_Mix(void);
+void Go_Mix_To_HatchIn(void);
+void Go_Mix_To_HatchOut(void);
+void Go_Hatch_To_CupDish(void);
+void Go_Hatch_To_Waste(void);
+void Go_Waste_To_HatchIn(void);
+void Go_Waste_To_HatchOut(void);
+void Go_Unload_Cup(void);
+
+void Go_Open_Cabin(void);
+void Go_Lock_Cabin(void);
+
+
+void Debug_Go_Orign_To_Capture(void);
+void Debug_Go_Orign_To_HatchIn(void);
+void Debug_Go_Orign_To_HatchOut(void);
+void Debug_Go_Orign_To_Mix(void);
+void Debug_Go_Orign_To_Wast1(void);
+void Debug_Go_Orign_To_Wast2(void);
+
+
+
+
+
+
+
+void StartMotorParaInit(void);
+
+void MotionHandle(void);
+
+Status_TypeDef CAN_Cmd_Haandle(Package_Info *unpack_data);
+
+//void EEpromTest(void);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
