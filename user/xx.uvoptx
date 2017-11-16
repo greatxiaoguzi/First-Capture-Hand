@@ -171,7 +171,24 @@
           <Name>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_1024 -FS08000000 -FL0100000 -FP0($$Device:STM32F103ZG$Flash\STM32F10x_1024.FLM))</Name>
         </SetRegEntry>
       </TargetDriverDllRegistry>
-      <Breakpoint/>
+      <Breakpoint>
+        <Bp>
+          <Number>0</Number>
+          <Type>0</Type>
+          <LineNumber>2794</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134223924</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>D:\宸ヤ綔璧勬枡\鍏ㄨ嚜鍔ㄦ簮鐮佸伐绋?Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\App\MotionDispatch.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\xx\../App/MotionDispatch.c\2794</Expression>
+        </Bp>
+      </Breakpoint>
       <WatchWindow1>
         <Ww>
           <count>0</count>
@@ -293,6 +310,16 @@
           <WinNumber>1</WinNumber>
           <ItemText>CanCmdList,0x0A</ItemText>
         </Ww>
+        <Ww>
+          <count>24</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Combine_Stage,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>25</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>CaptureCupExecuteStatus,0x0A</ItemText>
+        </Ww>
       </WatchWindow1>
       <Tracepoint>
         <THDelay>0</THDelay>
@@ -357,7 +384,7 @@
       <GroupNumber>1</GroupNumber>
       <FileNumber>2</FileNumber>
       <FileType>1</FileType>
-      <tvExp>0</tvExp>
+      <tvExp>1</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
       <PathWithFileName>.\main_app.c</PathWithFileName>

@@ -4,11 +4,11 @@
 #include "em_sw.h"
 //程序运行模式
 #define RUN_MODE     									1   			//运行模式
-#define DEBUG_MODE   									0   			//调试模式
+#define DEBUG_MODE   									0 			//调试模式
 
 #define CONFIG_PARA_OPTION                              0
 //EEPROM地址
-#define EEPROM_FOR_CUP_DATA_START_ADDR          		0X0006    		//杯盘号，当前抓杯数，当前杯位坐标，混匀器混匀时间等起始地址
+#define EEPROM_FOR_CUP_DATA_START_ADDR          		0X0000    		//杯盘号，当前抓杯数，当前杯位坐标，混匀器混匀时间等起始地址
 #define EEPROM_FOR_WORK_PARA_START_ADDR 				0X001E    		//30 byte机器工作位坐标起始地址
 //应答码及版本号
 #define TEXT_REC_ACK 									"ACK"
@@ -93,8 +93,8 @@
 #define  ENCODER_Y_AXIS									PCT_ENCODER_NO
 /********************************************************/
 #define UNLOAD_RISE_TIME          						100 		//下降后到卸杯上升时间的时间间隔
-#define CAPTURE_UNLOAD_CUP_HEIGHT_DIF                   250         //抓卸杯高度差，单位(脉冲)
-#define Z_PCT_ZERO_RUN_PULSE      						(8*11)    	//触发到光电开关后需要减速运行的脉冲数 
+#define CAPTURE_UNLOAD_CUP_HEIGHT_DIF                   800         //抓卸杯高度差，单位(脉冲)
+#define Z_PCT_ZERO_RUN_PULSE      						(8*13)    	//触发到光电开关后需要减速运行的脉冲数 
 #define Y_PCT_ZERO_RUN_PULSE      						(8*11)
 #define X_PCT_ZERO_RUN_PULSE      						(8*11)
 #define MIX_PCT_ZERO_RUN_PULSE    						(8*20)
@@ -119,8 +119,8 @@
 #define CUP_DISH3_LEFT_BOTTOM_CUP_NUM					99
 #define CUP_DISH3_RIGHT_BOTTOM_CUP_NUM 					112
 
-#define Z_LARGE_ACC_PULSE 		  						232    		//加速阶段要执行的脉冲数
-#define Z_LARGE_DEC_PULSE		  						232    		//减速阶段要执行的脉冲数
+#define Z_LARGE_ACC_PULSE 		  						464    		//加速阶段要执行的脉冲数
+#define Z_LARGE_DEC_PULSE		  						464    		//减速阶段要执行的脉冲数
 #define Y_LARGE_ACC_PULSE 		  						472    		//加速阶段要执行的脉冲数
 #define Y_LARGE_DEC_PULSE		  						472    		//减速阶段要执行的脉冲数
 #define X_LARGE_ACC_PULSE 		  						472    		//加速阶段要执行的脉冲数

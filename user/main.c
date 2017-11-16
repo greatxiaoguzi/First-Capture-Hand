@@ -55,10 +55,10 @@ void Test_Pct_Status(void)
 	printf("\n");
 }
 int main(void)
- {
+     {
 	u8 i = 0;
 	u8 buff[5];  
-
+ 
 	Init();  
 	//Create_Speed_Change_Table(400,9600,30);
 	CombineReset();
@@ -71,7 +71,7 @@ int main(void)
 	delay_ms(100);
 	printf("%d\r\n",sizeof(CapturePara_TpyeDef));
 	//EEpromTest();
-	while(1);
+	while(1)
 	{
 		/*if(can_flag == 0)
 		{
@@ -91,7 +91,10 @@ int main(void)
 		//Test_Pct_Status();
 		//delay_ms(700);
 		//Test_SW_Status(&unpack_data);
-		MotionHandle();
+		if(PCT_8_STATUS == 0)
+		{
+			MotionHandle();
+		}
 	}
 
 

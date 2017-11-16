@@ -27,42 +27,48 @@ Project File Date:  11/01/2017
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 1 (build 61)', folder: 'D:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'project'
+compiling pct_app.c...
+compiling main.c...
+main.c(59): warning:  #177-D: variable "i" was declared but never referenced
+  	u8 i = 0;
+main.c: 1 warning, 0 errors
+compiling main_app.c...
 compiling MotionDispatch.c...
 ..\App\MotionDispatch.c(285): warning:  #188-D: enumerated type mixed with another type
   	EM_SW_Status = ((u8)EM_SW_Get_Status(EM_SW_CH_H)<<7|(u8)EM_SW_Get_Status(EM_SW_CH_G)<<6|
 ..\App\MotionDispatch.c(282): warning:  #177-D: variable "buf" was declared but never referenced
   	u8 buf[1];
-..\App\MotionDispatch.c(575): warning:  #186-D: pointless comparison of unsigned integer with zero
-  	if(CurrCaptureCupNum>=0 && CurrCaptureCupNum<=112)
-..\App\MotionDispatch.c(568): warning:  #177-D: variable "buf" was declared but never referenced
+..\App\MotionDispatch.c(574): warning:  #186-D: pointless comparison of unsigned integer with zero
+  	if(CapturePara.CurrentCaptureNum>=0 && CapturePara.CurrentCaptureNum<=112)
+..\App\MotionDispatch.c(567): warning:  #177-D: variable "buf" was declared but never referenced
   	u8 buf[1];
-..\App\MotionDispatch.c(640): warning:  #188-D: enumerated type mixed with another type
+..\App\MotionDispatch.c(637): warning:  #188-D: enumerated type mixed with another type
   	EM_SW_Status = ((u8)EM_SW_Get_Status(EM_SW_CH_H)<<7|(u8)EM_SW_Get_Status(EM_SW_CH_G)<<6|
-..\App\MotionDispatch.c(711): warning:  #177-D: variable "len" was declared but never referenced
+..\App\MotionDispatch.c(707): warning:  #177-D: variable "len" was declared but never referenced
   		u16 len;
-..\App\MotionDispatch.c(1019): warning:  #111-D: statement is unreachable
+..\App\MotionDispatch.c(1015): warning:  #111-D: statement is unreachable
   		}break;
-..\App\MotionDispatch.c(1270): warning:  #111-D: statement is unreachable
+..\App\MotionDispatch.c(1266): warning:  #111-D: statement is unreachable
   		}break;
-..\App\MotionDispatch.c(1603): warning:  #188-D: enumerated type mixed with another type
+..\App\MotionDispatch.c(1599): warning:  #188-D: enumerated type mixed with another type
   			CanSendWorkStationInfo(
 AN_MAIN_MACHINE_ID,COM_REPORT_CONFIG_PARA,&Work_Para.Para_Version[0],Len);
-..\App\MotionDispatch.c(2773): warning:  #111-D: statement is unreachable
+..\App\MotionDispatch.c(2769): warning:  #111-D: statement is unreachable
   			break;
-..\App\MotionDispatch.c(2784): warning:  #177-D: variable "Data" was declared but never referenced
+..\App\MotionDispatch.c(2780): warning:  #177-D: variable "Data" was declared but never referenced
   	u8 Data = 0;
-..\App\MotionDispatch.c(2917): warning:  #188-D: enumerated type mixed with another type
-  					ExecuteCmd.MotionCmd = 0x00;
-..\App\MotionDispatch.c(3008): warning:  #188-D: enumerated type mixed with another type
+..\App\MotionDispatch.c(2924): warning:  #188-D: enumerated type mixed with another type
+  					ExecuteCmd.MotionCmd = 0X00;
+..\App\MotionDispatch.c(3015): warning:  #188-D: enumerated type mixed with another type
   			ExecuteCmd.MotionCmd = 0;
-..\App\MotionDispatch.c(3264): warning:  #188-D: enumerated type mixed with another type
+..\App\MotionDispatch.c(3272): warning:  #188-D: enumerated type mixed with another type
   		ExecuteCmd.MotionCmd = unpack_data->command;
 ..\App\MotionDispatch.c: 14 warnings, 0 errors
 linking...
-Program Size: Code=32868 RO-data=1780 RW-data=3876 ZI-data=3780  
+Program Size: Code=36276 RO-data=1788 RW-data=3868 ZI-data=3788  
 FromELF: creating hex file...
 --- Error: failed to execute 'D:\Keil_v5\ARM\ARMCC\Bin\fromelf'
-".\Objects\xx.axf" - 0 Error(s), 14 Warning(s).
+".\Objects\xx.axf" - 0 Error(s), 15 Warning(s).
 
 <h2>Collection of Component include folders:</h2>
   D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE

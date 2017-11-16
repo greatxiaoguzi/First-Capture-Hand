@@ -349,11 +349,13 @@ typedef enum
 //CAN动作调度指令
 typedef enum
 {
-	CMD_COM_NULL				 =  0X00,
-	CMD_VERSION_INQUIRE          =  0X01, 
-	CMD_REPORT_HARD_STAUS        =  0X02,
-	CMD_REPORT_CONFIG_PARA		 =  0X03,
-	CMD_COM_FAULT_HANDLE_RESULT  =  0X04,  			
+	CMD_COM_NULL				 =  0XFF,
+	CMD_VERSION_INQUIRE          =  0X00, 
+	CMD_REPORT_HARD_STAUS        =  0X01,
+	CMD_REPORT_CONFIG_PARA		 =  0X02,
+	CMD_SET_AXIS_WASPY_PARA      =  0X03,
+	CMD_COM_FAULT_HANDLE_RESULT  =  0X04, 
+	
 	CMD_COM_MACHINE_WHOLE_RESET  =  0X10,  			
 	CMD_COM_CURR_TO_ORIGIN       =  0X11, 			
 	CMD_COM_CURR_TO_CAPTUREP_POS =  0X20,			
@@ -377,11 +379,11 @@ typedef enum
 	CMD_COM_CUPDISH_TO_MIX		  = 0X32,
 	CMD_COM_MIX_TO_WASTE1         = 0x33,
 	CMD_COM_MIX_TO_WASTE2         = 0x34,
-	
 	CMD_COM_OPEN_CABIN      	  = 0X35,
 	CMD_COM_CLOSE_CABIN     	  = 0X36,
 	CMD_COM_MIX_RUNNING           = 0X40,
 	CMD_COM_UNLOAD_CUP            = 0X41,
+	
 	CMD_SINGLE_X_RESET			  =	0X50,
 	CMD_SINGLE_X_TO_CUP           = 0X51,
 	CMD_SINGLE_X_TO_HATCHIN       = 0X52,
@@ -397,14 +399,13 @@ typedef enum
 	CMD_SINGLE_Y_TO_WASTE1        = 0X65,
 	CMD_SINGLE_Y_TO_WASTE2        = 0X66,
 	CMD_SINGLE_Z_RESET			  =	0X70,
-	CMD_SINGLE_Z_UP				  = 0x71,
-	CMD_SINGLE_Z_TO_CUP           = 0X72,
-	CMD_SINGLE_Z_TO_HATCH         = 0X73,
-	CMD_SINGLE_Z_TO_MIX           = 0X74,
-	CMD_SINGLE_Z_TO_WASTE         = 0X75,
+	CMD_SINGLE_Z_TO_CUP           = 0X71,
+	CMD_SINGLE_Z_TO_HATCH         = 0X72,
+	CMD_SINGLE_Z_TO_MIX           = 0X73,
+	CMD_SINGLE_Z_TO_WASTE         = 0X74,
 	CMD_SINGLE_MIX_RESET		  = 0X80,
 	CMD_SINGLE_FINGEROPEN         = 0X90,
-	CMD_SINGLE_AXIS_WASPY_ADJUST  = 0XF3
+	CMD_SINGLE_AXIS_WASPY_ADJUST =  0XF0
 }CanMotionDispatchCmd_TypeDef;
 #define 	CAN_SINGLE_MOTION_MAX       37
 //执行指令
@@ -438,7 +439,7 @@ typedef struct
 {
 	union
 	{
-		u16 AllStatus;
+		u32 AllStatus;
 		struct
 		{
 			u8 Pct_X:		1;
@@ -449,9 +450,15 @@ typedef struct
 			u8 Pct_Waste1:	1;
 			u8 Pct_Waste2:	1;
 			u8 Pct_Cabin:	1;
+			
 			u8 Ect_Finger:	1;
 			u8 EctCabin_:	1;
-			u8 Ect_Reserve:	6;
+			
+			u8 motor1:		2;
+			u8 motor2:		2;
+			u8 motor3:		2;
+			u8 motor4:		2;
+			u16 reserve:    14;
 		}UnitStatus;
 	}HardStatus;   					//硬件状态
 	struct
@@ -516,7 +523,7 @@ typedef enum
 	FAULT_Z_TO_WASTE,
 	FAULT_FINGER_OPEN,
 }AnswerCode_TypeDef;
-#define FAULT_TYPE_MAX_NUM  39
+#define FAULT_TYPE_MAX_NUM  40
 //错误列表组合
 typedef struct
 {
