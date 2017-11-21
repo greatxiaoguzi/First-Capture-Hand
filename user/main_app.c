@@ -119,7 +119,7 @@ const MotorResetPara_TypeDef MotorResetPrar[4] =
 {
 	{X_PCT_ZERO_RUN_PULSE,X_PCT_ZERO_RUN_PULSE,800,8,0,{0,X_PCT_ZERO_RUN_PULSE,12000,8,10,0}},  	//X
 	{Y_PCT_ZERO_RUN_PULSE,Y_PCT_ZERO_RUN_PULSE,800,8,0,{0,Y_PCT_ZERO_RUN_PULSE,12000,8,10,0}}, 		//Y
-	{Z_PCT_ZERO_RUN_PULSE,Z_PCT_ZERO_RUN_PULSE,800,8,0,{0,Z_PCT_ZERO_RUN_PULSE,5000,8,12,0}},		//Z
+	{Z_PCT_ZERO_RUN_PULSE,Z_PCT_ZERO_RUN_PULSE,800,8,0,{0,Z_PCT_ZERO_RUN_PULSE,5000,8,29,0}},		//Z
 	{MIX_PCT_ZERO_RUN_PULSE,MIX_PCT_ZERO_RUN_PULSE,100,8,0,{0,MIX_PCT_ZERO_RUN_PULSE,1000,8,19,0}}
 };
 void Motion_Init(MOTOR_CHIP_SELECT sel,MOTOR_DIR Dir,const MotorResetPara_TypeDef *MotorResetPara,u16 *AccTab,u16 *DecTab)
@@ -273,13 +273,13 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 				delay_ms(10);
 				if(!PCT_Get_Status(PCT3) == PCT_TRIGGER)
 				{
-					Motion_Init(MOTOR_3,FWD,&MotorResetPrar[2],mindist_up_table[MOTOR_3],mindist_down_table[MOTOR_3]);
+					Motion_Init(MOTOR_3,FWD,&MotorResetPrar[2],speed_up_table[MOTOR_3],speed_down_table[MOTOR_3]);
 					delay_ms(500);
 					while(motor_info[MOTOR_3].finish == NO_FINISH);
 //					{
 //						delay_ms(10);
 //					}
-					Motion_Init_Return(MOTOR_3,REV,PCT_NO,&MotorResetPrar[2],mindist_up_table[MOTOR_3],mindist_down_table[MOTOR_3]);
+					Motion_Init_Return(MOTOR_3,REV,PCT_NO,&MotorResetPrar[2],speed_up_table[MOTOR_3],speed_down_table[MOTOR_3]);
 					delay_ms(500);
 					while(motor_info[MOTOR_3].finish == NO_FINISH);
 //					{
@@ -293,7 +293,7 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 				delay_ms(10);
 				if(!PCT_Get_Status(PCT3) == PCT_NO_TRIGGER)
 				{
-					Motion_Output_Carbin(MOTOR_3,PCT_NO,REV,&MotorResetPrar[2],mindist_up_table[MOTOR_3],mindist_down_table[MOTOR_3]);
+					Motion_Output_Carbin(MOTOR_3,PCT_NO,REV,&MotorResetPrar[2],speed_up_table[MOTOR_3],speed_down_table[MOTOR_3]);
 					delay_ms(500);
 					while(motor_info[MOTOR_3].finish == NO_FINISH)
 					{

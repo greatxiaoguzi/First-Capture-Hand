@@ -71,7 +71,7 @@ int main(void)
 	delay_ms(100);
 	printf("%d\r\n",sizeof(CapturePara_TpyeDef));
 	//EEpromTest();
-	while(1)
+	while(1);
 	{
 		/*if(can_flag == 0)
 		{
@@ -91,12 +91,27 @@ int main(void)
 		//Test_Pct_Status();
 		//delay_ms(700);
 		//Test_SW_Status(&unpack_data);
-		if(PCT_8_STATUS == 0)
-		{
-			MotionHandle();
-		}
+		MotionHandle();
 	}
 
 
-}	 
+}	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

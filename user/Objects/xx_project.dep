@@ -1,5 +1,5 @@
 Dependencies for Project 'xx', Target 'project': (DO NOT MODIFY !)
-F (.\main.c)(0x5A0C176C)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\main.o --omf_browse .\objects\main.crf --depend .\objects\main.d)
+F (.\main.c)(0x5A12B396)(--c99 -c --cpu Cortex-M3 -D__MICROLIB -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\main.o --omf_browse .\objects\main.crf --depend .\objects\main.d)
 I (main_app.h)(0x59E432FE)
 I (D:\Keil_v5\ARM\ARMCC\include\math.h)(0x55DB2B7E)
 I (D:\Keil_v5\ARM\ARMCC\include\inttypes.h)(0x55DB2B7E)
@@ -50,9 +50,9 @@ I (..\head\can.h)(0x5930BFED)
 I (..\head\at24cxx.h)(0x59158AEE)
 I (..\head\iic.h)(0x58DF6FCB)
 I (..\head\em_sw.h)(0x5928DFBF)
-I (..\App\MotionDispatch.h)(0x5A0D4A7A)
-I (..\head\Config.h)(0x5A0D4A7A)
-F (.\main_app.c)(0x5A0C176C)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\main_app.o --omf_browse .\objects\main_app.crf --depend .\objects\main_app.d)
+I (..\App\MotionDispatch.h)(0x5A13C7C8)
+I (..\head\Config.h)(0x5A1294EE)
+F (.\main_app.c)(0x5A0E9A75)(--c99 -c --cpu Cortex-M3 -D__MICROLIB -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\main_app.o --omf_browse .\objects\main_app.crf --depend .\objects\main_app.d)
 I (main_app.h)(0x59E432FE)
 I (D:\Keil_v5\ARM\ARMCC\include\math.h)(0x55DB2B7E)
 I (D:\Keil_v5\ARM\ARMCC\include\inttypes.h)(0x55DB2B7E)
@@ -103,9 +103,9 @@ I (..\head\can.h)(0x5930BFED)
 I (..\head\at24cxx.h)(0x59158AEE)
 I (..\head\iic.h)(0x58DF6FCB)
 I (..\head\em_sw.h)(0x5928DFBF)
-I (..\App\MotionDispatch.h)(0x5A0D4A7A)
-I (..\head\Config.h)(0x5A0D4A7A)
-F (.\pct_app.c)(0x5A042FE7)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\pct_app.o --omf_browse .\objects\pct_app.crf --depend .\objects\pct_app.d)
+I (..\App\MotionDispatch.h)(0x5A13C7C8)
+I (..\head\Config.h)(0x5A1294EE)
+F (.\pct_app.c)(0x5A042FE7)(--c99 -c --cpu Cortex-M3 -D__MICROLIB -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\pct_app.o --omf_browse .\objects\pct_app.crf --depend .\objects\pct_app.d)
 I (pct_app.h)(0x5993CAFA)
 I (..\head\sys.h)(0x5912DB8A)
 I (..\user\stm32f10x.h)(0x4D783CB4)
@@ -142,12 +142,12 @@ I (D:\Keil_v5\ARM\ARMCC\include\stdio.h)(0x55DB2B76)
 I (public.h)(0x5A0A9506)
 I (..\head\led.h)(0x5912CF76)
 I (..\head\pct.h)(0x5A03D135)
-I (..\App\MotionDispatch.h)(0x5A0D4A7A)
+I (..\App\MotionDispatch.h)(0x5A13C7C8)
 I (..\head\can.h)(0x5930BFED)
 I (D:\Keil_v5\ARM\ARMCC\include\string.h)(0x55DB2B78)
 I (..\head\em_sw.h)(0x5928DFBF)
-I (..\head\Config.h)(0x5A0D4A7A)
-F (.\crc16.c)(0x59F97F2F)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\crc16.o --omf_browse .\objects\crc16.crf --depend .\objects\crc16.d)
+I (..\head\Config.h)(0x5A1294EE)
+F (.\crc16.c)(0x59F97F2F)(--c99 -c --cpu Cortex-M3 -D__MICROLIB -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\crc16.o --omf_browse .\objects\crc16.crf --depend .\objects\crc16.d)
 I (crc16.h)(0x59F9834E)
 I (..\head\sys.h)(0x5912DB8A)
 I (..\user\stm32f10x.h)(0x4D783CB4)
@@ -182,8 +182,9 @@ I (..\head\delay.h)(0x5912CF51)
 I (..\head\usart.h)(0x595479B6)
 I (D:\Keil_v5\ARM\ARMCC\include\stdio.h)(0x55DB2B76)
 F (..\lib\四通道驱动板.lib)(0x595CC17E)()
-F (..\App\MotionDispatch.c)(0x5A0D4A7A)(--c99 -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\motiondispatch.o --omf_browse .\objects\motiondispatch.crf --depend .\objects\motiondispatch.d)
-I (..\App\MotionDispatch.h)(0x5A0D4A7A)
+F (..\Core\startup_stm32f10x_xl.s)(0x5A0D2BB1)(--cpu Cortex-M3 -g --apcs=interwork --pd "__MICROLIB SETA 1"-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include--pd "__UVISION_VERSION SETA 517" --pd "STM32F10X_XL SETA 1"--list .\listings\startup_stm32f10x_xl.lst --xref -o .\objects\startup_stm32f10x_xl.o --depend .\objects\startup_stm32f10x_xl.d)
+F (..\App\MotionDispatch.c)(0x5A13C7DF)(--c99 -c --cpu Cortex-M3 -D__MICROLIB -g -O0 --apcs=interwork --split_sections -I..\user -I..\FWLIB\inc -I..\head -I..\Core -I..\App-I D:\工作资料\全自动源码工程\Item_FirstCaptureFinger\FirstCaptureFinger_SourceCode\FourChal_FirstCaptureFinger_Com16CmdMotion_WorkStationConfigStruct\user\RTE-I D:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.1.0\Device\Include-I D:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="517" -DSTM32F10X_XL -DSTM32F10X_XL -DUSE_STDPERIPH_DRIVER-o .\objects\motiondispatch.o --omf_browse .\objects\motiondispatch.crf --depend .\objects\motiondispatch.d)
+I (..\App\MotionDispatch.h)(0x5A13C7C8)
 I (..\head\sys.h)(0x5912DB8A)
 I (..\user\stm32f10x.h)(0x4D783CB4)
 I (..\Core\core_cm3.h)(0x4D523B58)
@@ -220,7 +221,7 @@ I (..\user\public.h)(0x5A0A9506)
 I (..\head\can.h)(0x5930BFED)
 I (D:\Keil_v5\ARM\ARMCC\include\string.h)(0x55DB2B78)
 I (..\head\em_sw.h)(0x5928DFBF)
-I (..\head\Config.h)(0x5A0D4A7A)
+I (..\head\Config.h)(0x5A1294EE)
 I (..\user\main_app.h)(0x59E432FE)
 I (D:\Keil_v5\ARM\ARMCC\include\math.h)(0x55DB2B7E)
 I (D:\Keil_v5\ARM\ARMCC\include\inttypes.h)(0x55DB2B7E)

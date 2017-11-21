@@ -421,7 +421,7 @@ typedef struct
 	u8 CopoperationCmd_6;
 	u8 CopoperationCmd_7;
 	u8 CopoperationCmd_8;
-}ExecuteCmd_TypeDf;
+}ExecuteCmd_TypeDef;
 //杯盘在校准后的实际固有参数
 typedef struct
 {
@@ -486,6 +486,7 @@ typedef enum
 	FIN_ACK,
 	VERSION_INQUIE,
 	CONFIG_PARA,
+	FAULT_RESET_TOTAL,
 	FAULT_RESET_X_AXIS,
 	FAULT_RESET_Y_AXIS,
 	FAULT_RESET_Z_AXIS,
@@ -569,10 +570,11 @@ typedef union
 //开机后记录的上次关机后的最后一簇抓杯后的位置
 typedef struct
 {
-	u8 CupDishNum;
+	u8 CupDishNum;						//当前杯盘号
 	u16 CurrentCaptureNum;  			//当前已经抓取的杯子数
-	u32 X_Position;
+	u32 X_Position;						//偏移坐标
 	u32 Y_Position;
+	u16 HappenFaultTimes;				//发生故障的次数
 }CapturePara_TpyeDef;
 //机器相对原点坐标
 typedef struct
@@ -730,7 +732,7 @@ void StartMotorParaInit(void);
 
 void MotionHandle(void);
 
-void CAN_Cmd_Haandle(ExecuteCmd_TypeDf *ExecuteCmdData);
+void CAN_Cmd_Haandle(ExecuteCmd_TypeDef *ExecuteCmdData);
 
 //void EEpromTest(void);
 

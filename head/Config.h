@@ -16,7 +16,7 @@
 #define TEXT_FIN_ACK 									"OK"
 #define TEXT_VERSION_INQUIE 							"V1.0.000"
 
-
+#define TEXT_FAULT_RESET_TOTAL 							"ERROR000"
 #define TEXT_FAULT_RESET_X_AXIS 						"ERROR001"
 #define TEXT_FAULT_RESET_Y_AXIS 						"ERROR002"
 #define TEXT_FAULT_RESET_Z_AXIS 						"ERROR003"
@@ -94,7 +94,7 @@
 /********************************************************/
 #define UNLOAD_RISE_TIME          						100 		//下降后到卸杯上升时间的时间间隔
 #define CAPTURE_UNLOAD_CUP_HEIGHT_DIF                   800         //抓卸杯高度差，单位(脉冲)
-#define Z_PCT_ZERO_RUN_PULSE      						(8*13)    	//触发到光电开关后需要减速运行的脉冲数 
+#define Z_PCT_ZERO_RUN_PULSE      						(8*30)    	//触发到光电开关后需要减速运行的脉冲数 
 #define Y_PCT_ZERO_RUN_PULSE      						(8*11)
 #define X_PCT_ZERO_RUN_PULSE      						(8*11)
 #define MIX_PCT_ZERO_RUN_PULSE    						(8*20)
@@ -132,8 +132,8 @@
 #define Z_SHORT_DEC_PULSE		  						72    		//减速阶段要执行的脉冲数
 #define Y_SHORT_ACC_PULSE 		  						88    		//加速阶段要执行的脉冲数
 #define Y_SHORT_DEC_PULSE		  						88    		//减速阶段要执行的脉冲数
-#define X_SHORT_ACC_PULSE 		  						66    		//加速阶段要执行的脉冲数
-#define X_SHORT_DEC_PULSE		  						66    		//减速阶段要执行的脉冲数
+#define X_SHORT_ACC_PULSE 		  						88    		//加速阶段要执行的脉冲数
+#define X_SHORT_DEC_PULSE		  						88    		//减速阶段要执行的脉冲数
 #define MIX_SHORT_ACC_PULSE       						96    		//混匀盘加速阶段需要执行的脉冲数
 #define MIX_SHORT_DEC_PULSE		  						96 
 

@@ -20,7 +20,7 @@ extern MOTOR_INFO motor_info[4];   		//四通道电机参数数据结构
 //内部参数
 u32 Mix_Circle_Cnt = 0;   					//混匀盘转动圈数
 u32 Mix_Max_Circle = 0;
-u32 CurrCaptureCupNum = 76; 				//已经抓取的杯子的数量
+u32 CurrCaptureCupNum = 1; 				//已经抓取的杯子的数量
 u32 ThrowCupNum = 0;  					//扔掉的杯子
 u32 MixRunMaxPulse = 0;  				//混匀器最大混匀运行的脉冲数
 CaptureCupStatus_TypeDef CaptureCupExecuteStatus = NO_EXECUTE; 					//手指当前的抓杯状态
@@ -115,10 +115,11 @@ const FaultTypeCmdTab_TypeDef FaultCmdTab[FAULT_TYPE_MAX_NUM] =
 	{REC_NACK,							TEXT_REC_NACK},
 	{FIN_ACK,							TEXT_FIN_ACK},
 	{VERSION_INQUIE,					TEXT_VERSION_INQUIE},
+	{FAULT_RESET_TOTAL,					TEXT_FAULT_RESET_TOTAL},
 	{FAULT_RESET_X_AXIS,				TEXT_FAULT_RESET_X_AXIS},
 	{FAULT_RESET_Y_AXIS,				TEXT_FAULT_RESET_Y_AXIS},
 	{FAULT_RESET_Z_AXIS,				TEXT_FAULT_RESET_Z_AXIS},
-	{FAULT_RESET_MIX,					TEXT_FAULT_RESET_MIX,},
+	{FAULT_RESET_MIX,					TEXT_FAULT_RESET_MIX},
 	{FAULT_ORIGIN_TO_CAPTURECUP,		TEXT_FAULT_ORIGIN_TO_CAPTURECUP},
 	{FAULT_ORIGIN_TO_HATCHIN,			TEXT_FAULT_ORIGIN_TO_HATCHIN},
 	{FAULT_ORIGIN_TO_HATCHOUT,			TEXT_FAULT_ORIGIN_TO_HATCHOUT},
@@ -213,7 +214,7 @@ CanCmdMotionDispatch_TypeDef CAN_Cmd_Combine_Motion[] =
 	{CMD_COM_MIX_RUNNING,			Go_Mix_Running,				COM_MIX_RUNNING},
 	{CMD_COM_UNLOAD_CUP,			Go_Unload_Cup,				COM_UNLOAD_CUP},
 };
-ExecuteCmd_TypeDf ExecuteCmd;
+ExecuteCmd_TypeDef ExecuteCmd;
 //工作位参数加载，从EEPROM结构体融合并且加载到系统运行结构体中
 void WorkPositionParaConfig(void)
 {
@@ -288,6 +289,8 @@ void SysParaInitConfig(void)
 					(u8)EM_SW_Get_Status(EM_SW_CH_B)<<1|(u8)EM_SW_Get_Status(EM_SW_CH_A)<<0);
 	DataLen = sizeof(CapturePara);
 	AT24CXX_Read(EEPROM_FOR_CUP_DATA_START_ADDR,&CapturePara.CupDishNum,DataLen);  	//读出之前保存在EEPROM中的杯位数据
+	CapturePara.HappenFaultTimes = 0;  					//如果没写入的话重新配置为零
+	CapturePara.CurrentCaptureNum = 1;
 //	CalMixMaxPoint(Work_Para.Mix_Motor_Para_Info.Config_Para_Info[MIX_TIME]);
 	//CapturePara.CurrentCaptureNum = CurrCaptureCupNum;
 	CalMixMaxPoint(5);
@@ -425,6 +428,7 @@ void GetCaptureCupOffset(u16 CurrCaptureCupNum,u16 *XOffsetCoord,u16 *YOffsetCoo
 	输入参数：	杯盘号，X方向上的偏移值，Y方向上的偏移值，转换后的X方向上的脉冲数，转换后的Y方向上的脉冲数
 	返回值：		无
 ********************************************************/
+static u8 LocationCompensateFlag = 0;  //脉冲补偿标志
 void GetCaptureCupPosition(u8 CupNum,u16 X_Offset,u16 Y_Offset,u32 *X_Offset_Posiotion,u32 *Y_Offset_Position)
 {
 	float X_Loction_Space = 0;  //X方向上偏移起始点之间的间距
@@ -435,38 +439,40 @@ void GetCaptureCupPosition(u8 CupNum,u16 X_Offset,u16 Y_Offset,u32 *X_Offset_Pos
 	{   
 		case 1:  	//如果是杯盘1
 		{
-			if(abs(WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position) >= 25)
+			if(/*abs(WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position-WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position)>=25 || */LocationCompensateFlag!=1)
 			{
+				LocationCompensateFlag = 0;
 				X_Loction_Space = abs(WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position)/7;
 			}
 			if(WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position <= WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position)
 			{
-				if(X_Offset != Pre_X_Offset)
+				if(X_Offset!=Pre_X_Offset || LocationCompensateFlag!=1)
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position + (7-Y_Offset)*X_Loction_Space + X_Offset*CupDishCalibrationProperty.Cup1_X_Actual_Space);
 				else
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position + X_Offset*CupDishCalibrationProperty.Cup1_X_Actual_Space);
 			}
 			else if(WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position <= WorkParaCombine.X_Work_Para.CupDish1_RightTop_Position)
 			{
-				if(X_Offset != Pre_X_Offset)
+				if(X_Offset!=Pre_X_Offset || LocationCompensateFlag!=1)
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position + Y_Offset*X_Loction_Space + X_Offset*CupDishCalibrationProperty.Cup1_X_Actual_Space);
 				else
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position + X_Offset*CupDishCalibrationProperty.Cup1_X_Actual_Space);
 			}
-			if(abs(WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position) >= 65)
+			if(/*abs(WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position)>=65 || */LocationCompensateFlag!=1)
 			{
+				LocationCompensateFlag = 0;
 				Y_Loction_Space = abs(WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position)/13;
 			}
 			if(WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position <= WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position)
 			{
-				if(Y_Offset != Pre_Y_Offset)
+				if(Y_Offset!=Pre_Y_Offset || LocationCompensateFlag!=1)
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position + (13-X_Offset)*Y_Loction_Space + Y_Offset*CupDishCalibrationProperty.Cup1_Y_Actual_Space);
 				else
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position + Y_Offset*CupDishCalibrationProperty.Cup1_Y_Actual_Space);
 			}
 			else if(WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position <= WorkParaCombine.Y_Work_Para.CupDish1_LeftBottom_Position)
 			{
-				if(Y_Offset != Pre_Y_Offset)
+				if(Y_Offset!=Pre_Y_Offset || LocationCompensateFlag!=1)
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position + X_Offset*Y_Loction_Space + Y_Offset*CupDishCalibrationProperty.Cup1_Y_Actual_Space);
 				else
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position + Y_Offset*CupDishCalibrationProperty.Cup1_Y_Actual_Space);
@@ -474,38 +480,40 @@ void GetCaptureCupPosition(u8 CupNum,u16 X_Offset,u16 Y_Offset,u32 *X_Offset_Pos
 		}break;
 		case 2:		//如果是杯盘2
 		{
-			if(abs(WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position) >= 25)
+			if(/*abs(WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position)>=25 || */LocationCompensateFlag!=1)
 			{
+				LocationCompensateFlag = 0;
 				X_Loction_Space = abs(WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position)/7;
 			}
 			if(WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position <= WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position)
 			{
-				if(X_Offset != Pre_X_Offset)
+				if(X_Offset!=Pre_X_Offset || LocationCompensateFlag!=1)
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position + (7-Y_Offset)*X_Loction_Space + X_Offset*CupDishCalibrationProperty.Cup2_X_Actual_Space);
 				else
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position + X_Offset*CupDishCalibrationProperty.Cup2_X_Actual_Space);
 			}
 			else if(WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position <= WorkParaCombine.X_Work_Para.CupDish2_RightTop_Position)
 			{
-				if(X_Offset != Pre_X_Offset)
+				if(X_Offset!=Pre_X_Offset || LocationCompensateFlag!=1)
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position + Y_Offset*X_Loction_Space + X_Offset*CupDishCalibrationProperty.Cup2_X_Actual_Space);
 				else
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position + X_Offset*CupDishCalibrationProperty.Cup2_X_Actual_Space);
 			}
-			if(abs(WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position) >= 65)
+			if(/*abs(WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position)>=65 || */LocationCompensateFlag!=1)
 			{
+				LocationCompensateFlag = 0;
 				Y_Loction_Space = abs(WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position)/13;
 			}
 			if(WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position <= WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position)
 			{
-				if(Y_Offset != Pre_Y_Offset)
+				if(Y_Offset!=Pre_Y_Offset || LocationCompensateFlag!=1)
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position + (13-X_Offset)*Y_Loction_Space + Y_Offset*CupDishCalibrationProperty.Cup2_Y_Actual_Space);
 				else
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position + Y_Offset*CupDishCalibrationProperty.Cup2_Y_Actual_Space);
 			}
 			else if(WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position <= WorkParaCombine.Y_Work_Para.CupDish2_LeftBottom_Position)
 			{
-				if(Y_Offset != Pre_Y_Offset)
+				if(Y_Offset!=Pre_Y_Offset || LocationCompensateFlag!=1)
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position + X_Offset*Y_Loction_Space + Y_Offset*CupDishCalibrationProperty.Cup2_Y_Actual_Space);
 				else
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position + Y_Offset*CupDishCalibrationProperty.Cup2_Y_Actual_Space);
@@ -513,38 +521,40 @@ void GetCaptureCupPosition(u8 CupNum,u16 X_Offset,u16 Y_Offset,u32 *X_Offset_Pos
 		}break;
 		case 3:		//如果是杯盘3
 		{
-			if(abs(WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position) >= 25)
+			if(/*abs(WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position)>=25 || */LocationCompensateFlag!=1)
 			{
+				LocationCompensateFlag = 0;
 				X_Loction_Space = abs(WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position - WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position)/7;
 			}
 			if(WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position <= WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position)
 			{
-				if(X_Offset != Pre_X_Offset)
+				if(X_Offset!=Pre_X_Offset || LocationCompensateFlag!=1)
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position + (7-Y_Offset)*X_Loction_Space + X_Offset*CupDishCalibrationProperty.Cup3_X_Actual_Space);
 				else
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position + X_Offset*CupDishCalibrationProperty.Cup3_X_Actual_Space);
 			}
 			else if(WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position <= WorkParaCombine.X_Work_Para.CupDish3_RightTop_Position)
 			{
-				if(X_Offset != Pre_X_Offset)
+				if(X_Offset!=Pre_X_Offset || LocationCompensateFlag!=1)
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position + Y_Offset*X_Loction_Space + X_Offset*CupDishCalibrationProperty.Cup3_X_Actual_Space);
 				else
 					*X_Offset_Posiotion = (u32)(WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position + X_Offset*CupDishCalibrationProperty.Cup3_X_Actual_Space);
 			}
-			if(abs(WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position) >= 65)
+			if(/*abs(WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position)>=65 || */LocationCompensateFlag!=1)
 			{
+				LocationCompensateFlag = 0;
 				Y_Loction_Space = abs(WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position - WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position)/13;
 			}
 			if(WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position <= WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position)
 			{
-				if(Y_Offset != Pre_Y_Offset)
+				if(Y_Offset!=Pre_Y_Offset || LocationCompensateFlag!=1)
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position + (13-X_Offset)*Y_Loction_Space + Y_Offset*CupDishCalibrationProperty.Cup3_Y_Actual_Space);
 				else
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position + Y_Offset*CupDishCalibrationProperty.Cup3_Y_Actual_Space);
 			}
 			else if(WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position <= WorkParaCombine.Y_Work_Para.CupDish3_LeftBottom_Position)
 			{
-				if(Y_Offset != Pre_Y_Offset)
+				if(Y_Offset!=Pre_Y_Offset || LocationCompensateFlag!=1)
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position + X_Offset*Y_Loction_Space + Y_Offset*CupDishCalibrationProperty.Cup3_Y_Actual_Space);
 				else
 					*Y_Offset_Position = (u32)(WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position + Y_Offset*CupDishCalibrationProperty.Cup3_Y_Actual_Space);
@@ -683,7 +693,7 @@ void CanSendData(u8 DestId,CanMotionDispatchCmd_TypeDef ExecuteCmd,AnswerCode_Ty
 	package_data.dest_id = DestId;
 	package_data.pack_status = 0;
 	package_data.command = ExecuteCmd;
-	package_data.ide = CAN_ID_STD;
+	package_data.ide = CAN_ID_EXT;
 	package_data.rtr = CAN_RTR_DATA;
 	package_data.upgrade_pack_num = 0;
 	for(u8 i=0;i<FAULT_TYPE_MAX_NUM;i++)
@@ -930,9 +940,9 @@ void FingerOpen(PCT_NUMBER Pct_Num)
 	for(Cnt=0;Cnt<5;Cnt++)
 	{
 		Finger_Sw_Status(FINGER_OPEN);
-		delay_ms(500);
+		delay_ms(400);
 		Finger_Sw_Status(FINGER_CLOSE);
-		delay_ms(300);
+		delay_ms(200);
 		if(PCT_Get_Status(Pct_Num))
 			continue;
 		else if(!PCT_Get_Status(Pct_Num))
@@ -1056,14 +1066,14 @@ void X_MotorParaConfig(MotionCmd_TypeDef X_Motion,u32 X_TargetPulse,MOTOR_DIR Di
 		motor_info[DEVICE_UNIT_X].finish = FINISHED;
 		return;
 	}
-	else if(X_TargetPulse <= 25)  		//很微小的步数
+	else if(X_TargetPulse <= (X_SHORT_ACC_PULSE+X_SHORT_DEC_PULSE))  		//很微小的步数
 	{
 		X_ConfigPara.acc_pulse = 0;
 		X_ConfigPara.dec_pulse = 0;
 		X_ConfigPara.const_pulse = X_TargetPulse; 
 		X_ConfigPara.multiple = 1;
 		X_ConfigPara.pct_zero_run_pulse = 0;
-		MotorMotionConfig_Init(&X_ConfigPara,DEVICE_UNIT_X,&mindist_up_table[DEVICE_UNIT_X][5],NULL);
+		MotorMotionConfig_Init(&X_ConfigPara,DEVICE_UNIT_X,&mindist_up_table[DEVICE_UNIT_X][3],NULL);
 	}
 	else if(X_TargetPulse < ((X_LARGE_ACC_PULSE + X_LARGE_DEC_PULSE) + 200 )) //如果目标脉冲数小于加减速阶段的总的脉冲数之和的话，执行小距离的加减速控制
 	{
@@ -1149,16 +1159,16 @@ void Y_MotorParaConfig(MotionCmd_TypeDef Y_Motion,u32 Y_TargetPulse,MOTOR_DIR Di
 		motor_info[DEVICE_UNIT_Y].finish = FINISHED;
 		return;
 	}
-	else if(Y_TargetPulse <= 25)  		//很微小的步数
+	else if(Y_TargetPulse <= (Y_SHORT_ACC_PULSE+Y_SHORT_DEC_PULSE))  		//很微小的步数
 	{
 		Y_ConfigPara.acc_pulse = 0;
 		Y_ConfigPara.dec_pulse = 0;
 		Y_ConfigPara.const_pulse = Y_TargetPulse; 
 		Y_ConfigPara.multiple = 1;
 		Y_ConfigPara.pct_zero_run_pulse = 0;
-		MotorMotionConfig_Init(&Y_ConfigPara,DEVICE_UNIT_Y,&mindist_up_table[DEVICE_UNIT_Y][5],NULL);
+		MotorMotionConfig_Init(&Y_ConfigPara,DEVICE_UNIT_Y,&mindist_up_table[DEVICE_UNIT_Y][3],NULL);
 	}
-	else if(Y_TargetPulse < ((Y_LARGE_ACC_PULSE + Y_LARGE_DEC_PULSE) - 10))
+	else if(Y_TargetPulse < ((Y_LARGE_ACC_PULSE + Y_LARGE_DEC_PULSE) + 200))
 	{
 		Y_ConfigPara.acc_pulse = Y_SHORT_ACC_PULSE;
 		Y_ConfigPara.dec_pulse = Y_SHORT_DEC_PULSE;
@@ -1773,7 +1783,7 @@ void Go_Curr_To_CaptureCup(void)
 		case 0X0007:
 			ComMotionFinishFlag = TRUE;
 			CapturePara.CurrentCaptureNum +=1;
-			if(CapturePara.CurrentCaptureNum == 336)
+			if(CapturePara.CurrentCaptureNum == 337)
 				CapturePara.CurrentCaptureNum = 1;
 			break;
 		case 0X000F:break;
@@ -2687,7 +2697,7 @@ void SysInit(void)
 	delay_ms(400);
 	LED_ON;
 }
-static u8 CanCmdList = 0;
+u8 CanCmdList = 0;
 /********************************************************
 	功能：		对各个电机轴的参数复位清零操作
 	输入参数：	无
@@ -2861,17 +2871,19 @@ void ComMotin_AssistHandle(void)
 		}break;
 		case STOP_LEVLE:  			//停止级
 		{
-			
+			CanSendData(CAN_MAIN_MACHINE_ID,STOP_LEVLE,NULL);
+			CurrFaultLevel = WAIT_MOTION_FINSH;
 		}break;
 		case PAUSE_LEVEL:  			//暂停级
 		{
-			
+			CanSendData(CAN_MAIN_MACHINE_ID,PAUSE_LEVEL,NULL);
+			CurrFaultLevel = WAIT_MOTION_FINSH;
 		}break;
 		case RERESET_LEVEL:   		//复位级
 		{
-			CurrFaultLevel = LEVEL_LOWEST;
-			CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[CurrComMotion].CanCmd,FAULT_FINGER_OPEN); //发送动作完成指令
-			SaveCupDataToEEprom();
+			CapturePara.HappenFaultTimes++;
+			CanSendData(CAN_MAIN_MACHINE_ID,RERESET_LEVEL,NULL);
+ 			SaveCupDataToEEprom();
 			CombineReset();
 			ResetParaInit(DEVICE_TOTAL);
 			CanCmdList = 0;
@@ -2882,11 +2894,14 @@ void ComMotin_AssistHandle(void)
 			motor_info[DEVICE_UNIT_Y].finish = FINISHED;
 			motor_info[DEVICE_UNIT_Z].finish = FINISHED;
 			motor_info[DEVICE_UNIT_MIX].finish = FINISHED;
-			
+			CurrFaultLevel = WAIT_MOTION_FINSH;
 		}break;
-		case WAIT_MOTION_FINSH:   	//等待当前动作完成后再处理级别
+		case WAIT_MOTION_FINSH:   	//等待处理完成后再进行动作
 		{
-			
+			LED_ON;
+			delay_ms(400);
+			LED_OFF;
+			delay_ms(400);
 		}break;
 		default:break;
 	}
@@ -2896,12 +2911,12 @@ void ComMotin_AssistHandle(void)
 	输入参数：	CAN数据包
 	返回值：		解析结果
 ********************************************************/
-void CAN_Cmd_Haandle(ExecuteCmd_TypeDf *ExecuteCmdData)
+void CAN_Cmd_Haandle(ExecuteCmd_TypeDef *ExecuteCmdData)
 {
 	u16 X_Offset;   			//用于单轴调试找试剂杯用
 	u16 Y_Offset;
 	if(CurrComMotion == COM_NO_MOTION)
-	{
+	{ 
 		if(ExecuteCmd.ExecuteCmdValid==1 || CaptureCupExecuteStatus!=NO_EXECUTE)  		//X和Y轴运行在相同的情况下
 		{
 			ExecuteCmd.ExecuteCmdValid = 0;  					//外部接口调用*/
@@ -2909,6 +2924,7 @@ void CAN_Cmd_Haandle(ExecuteCmd_TypeDf *ExecuteCmdData)
 			{
 				case RE_CAPTURE_CUP:
 					CaptureCupExecuteStatus = NO_EXECUTE;
+					LocationCompensateFlag = 1;
 					ExecuteCmd.MotionCmd = CMD_COM_CURR_TO_CAPTUREP_POS;
 					break;
 				case UNLOAD_CUP_TO_WASTE:
@@ -2936,20 +2952,24 @@ void CAN_Cmd_Haandle(ExecuteCmd_TypeDf *ExecuteCmdData)
 					{
 						case STOP_LEVLE:
 						{
-							CurrFaultLevel = STOP_LEVLE;
+							CurrFaultLevel = LEVEL_LOWEST;
+							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
 							//SaveCupDataToEEprom();  		//执行停机前的操作
 						}break;
 						case PAUSE_LEVEL:
 						{
-							CurrFaultLevel = PAUSE_LEVEL;
+							CurrFaultLevel = LEVEL_LOWEST;
+							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
 						}break;
 						case RERESET_LEVEL:
 						{
-							CurrFaultLevel = RERESET_LEVEL;
+							CurrFaultLevel = LEVEL_LOWEST;
+							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
 						}break;
 						case WAIT_MOTION_FINSH:
 						{
-							CurrFaultLevel = WAIT_MOTION_FINSH;
+							CurrFaultLevel = LEVEL_LOWEST;
+							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
 						}break;
 						default:CurrFaultLevel = LEVEL_LOWEST;break;
 					}
@@ -3014,6 +3034,14 @@ void CAN_Cmd_Haandle(ExecuteCmd_TypeDf *ExecuteCmdData)
 			}
 			ExecuteCmd.MotionCmd = 0;
 		}
+	}
+	if(PCT_8_STATUS != 0)   //抽屉被拉开的话
+	{
+		CurrFaultLevel = PAUSE_LEVEL;   //机器暂停中
+	}
+	else
+	{
+		CurrFaultLevel = LEVEL_LOWEST; 
 	}
 }
 #if DEBUG_MODE == 1     
@@ -3248,7 +3276,7 @@ CanMotionDispatchCmd_TypeDef UperComputerCmdTab[] =
 ********************************************************/
 void AnalogUperComputerSendCmd(void)
 {
-	if(CurrComMotion==COM_NO_MOTION && CaptureCupExecuteStatus == NO_EXECUTE)
+	if(CurrComMotion==COM_NO_MOTION && CaptureCupExecuteStatus==NO_EXECUTE && CurrFaultLevel==LEVEL_LOWEST)
 	{
 		ExecuteCmd.ExecuteCmdValid = 1;
 		ExecuteCmd.MotionCmd = UperComputerCmdTab[CanCmdList++];
