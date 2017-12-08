@@ -25,13 +25,14 @@ u32 ThrowCupNum = 0;  					//扔掉的杯子
 u32 MixRunMaxPulse = 0;  				//混匀器最大混匀运行的脉冲数
 CaptureCupStatus_TypeDef CaptureCupExecuteStatus = NO_EXECUTE; 					//手指当前的抓杯状态
 CaptureFinger_Status_TypeDef CaptureFingerStatus = CAPTURE_FINGER_IDLE;//抓杯手指当前的运行状态
+u8 CaptureCupExistFlag = 0;		//此次下去会有抓杯动作标志
 
 CapturePara_TpyeDef CapturePara;		//关机之后到有杯子的坐标点(在开机参数配置中从EEPROM中获取)
 CupDishCalibrationProperty_TypeDef CupDishCalibrationProperty; //杯盘校准后的属性
 
-//MOTOR_COMPLETION_STATUS FingerEcttmStatus = NO_FINISH;   //抓杯电磁铁运行完成状态标志
-MOTOR_COMPLETION_STATUS CabinEcttmStatus = NO_FINISH;  //抽屉打开后完成状态标志
-MOTOR_COMPLETION_STATUS SendOtherStatusInfoFlag = NO_FINISH;   //发送其余状态信息完成标志
+//MOTOR_COMPLETION_STATUS FingerEcttmStatus = NO_FINISH;   		//抓杯电磁铁运行完成状态标志
+MOTOR_COMPLETION_STATUS CabinEcttmStatus = NO_FINISH;  			//抽屉打开后完成状态标志
+MOTOR_COMPLETION_STATUS SendOtherStatusInfoFlag = NO_FINISH;   	//发送其余状态信息完成标志
 
 //机器绝对零点和相对零点
 Machine_Position_TypeDef Mchine_Position =
@@ -151,7 +152,8 @@ const FaultTypeCmdTab_TypeDef FaultCmdTab[FAULT_TYPE_MAX_NUM] =
 	{FAULT_Z_TO_HATCH,					TEXT_FAULT_Z_TO_HATCH},
 	{FAULT_Z_TO_MIX,					TEXT_FAULT_Z_TO_MIX},
 	{FAULT_Z_TO_WASTE,					TEXT_FAULT_Z_TO_WASTE},
-	{FAULT_FINGER_OPEN,					TEXT_FAULT_FINGER_OPEN}
+	{FAULT_FINGER_OPEN,					TEXT_FAULT_FINGER_OPEN},
+	{FAULT_CAPTURE_FAIL,				TEXT_FAULT_CAPTURE_FAIL}
 };
 SysStatusInquiry_TypeDef SysCurrSataus;          		//硬件状态和当前运行参数
 FaultLevel_TypeDef CurrFaultLevel = LEVEL_LOWEST;   	//系统故障级别
@@ -277,27 +279,14 @@ void WorkPositionParaConfig(void)
 *****************************/
 void SysParaInitConfig(void)
 {
-	u8 PCT_CurrStatus;
 	u16 crc_Value;
-	EM_SW_STATUS EM_SW_Status;
-	u8 buf[1];
 	u16 DataLen = 0;
-	PCT_CurrStatus = GetAllPctStatus();
-	EM_SW_Status = ((u8)EM_SW_Get_Status(EM_SW_CH_H)<<7|(u8)EM_SW_Get_Status(EM_SW_CH_G)<<6|
-					(u8)EM_SW_Get_Status(EM_SW_CH_F)<<5|(u8)EM_SW_Get_Status(EM_SW_CH_E)<<4|
-					(u8)EM_SW_Get_Status(EM_SW_CH_D)<<3|(u8)EM_SW_Get_Status(EM_SW_CH_C)<<2|
-					(u8)EM_SW_Get_Status(EM_SW_CH_B)<<1|(u8)EM_SW_Get_Status(EM_SW_CH_A)<<0);
 	DataLen = sizeof(CapturePara);
-	AT24CXX_Read(EEPROM_FOR_CUP_DATA_START_ADDR,&CapturePara.CupDishNum,DataLen);  	//读出之前保存在EEPROM中的杯位数据
-	CapturePara.HappenFaultTimes = 0;  					//如果没写入的话重新配置为零
+//	AT24CXX_Read(EEPROM_FOR_CUP_DATA_START_ADDR,&CapturePara.CupDishNum,DataLen);  	//读出之前保存在EEPROM中的杯位数据
 	CapturePara.CurrentCaptureNum = 1;
 //	CalMixMaxPoint(Work_Para.Mix_Motor_Para_Info.Config_Para_Info[MIX_TIME]);
 	//CapturePara.CurrentCaptureNum = CurrCaptureCupNum;
 	CalMixMaxPoint(5);
-	SysCurrSataus.HardStatus.AllStatus = (u16)(EM_SW_Status<<8 | PCT_CurrStatus);
-	SysCurrSataus.ExecutePara.CurrCaptureCupNum = CurrCaptureCupNum,
-	SysCurrSataus.ExecutePara.CurrThrowCupNum = CUP_TOTAL_NUM - CurrCaptureCupNum - 2;
-	SysCurrSataus.ExecutePara.CurrExecuteMotion = COM_NO_MOTION,
 	Mchine_Position.Machine_Relative_Origin_X = Mchine_Position.Machine_Absolute_Origin_X - X_PCT_ZERO_RUN_PULSE;
 	Mchine_Position.Machine_Relative_Oringin_Y = Mchine_Position.Machine_Absolute_Origin_Y - Y_PCT_ZERO_RUN_PULSE;
 	Mchine_Position.Machine_Relative_Oringin_Z = Mchine_Position.Machine_Absolute_Origin_Z - Z_PCT_ZERO_RUN_PULSE;
@@ -305,6 +294,7 @@ void SysParaInitConfig(void)
 	FingerPositionData.Curr_Position.Fingrer_Position_X = Mchine_Position.Machine_Relative_Origin_X;	//Mchine_Position.Machine_Relative_Origin_X;
 	FingerPositionData.Curr_Position.Fingrer_Position_Y = Mchine_Position.Machine_Relative_Oringin_Y;	//Mchine_Position.Machine_Relative_Oringin_Y;
 	FingerPositionData.Curr_Position.Fingrer_Position_Z = Mchine_Position.Machine_Relative_Oringin_Z;	// Mchine_Position.Machine_Relative_Oringin_Z;
+	delay_ms(100);
 	if(CONFIG_PARA_OPTION == 1)
 	{
 		DataLen = sizeof(Work_Para_TypeDef);
@@ -318,7 +308,7 @@ void SysParaInitConfig(void)
 	else if(CONFIG_PARA_OPTION == 0)
 	{
 		DataLen = sizeof(WorkParaCombine_TypeDef);
-		AT24CXX_Read(EEPROM_FOR_WORK_PARA_START_ADDR,(u8*)&WorkParaCombine.X_Work_Para.CupDish1_LeftBottom_Position,DataLen);
+		AT24CXX_Read(EEPROM_FOR_WORK_PARA_START_ADDR,(u8*)&WorkParaCombine.X_Work_Para.CupDish1_LeftBottom_Position,1);
 		crc_Value = Work_Para.crc_value;
 		if(CRC16_1((u8*)&WorkParaCombine.X_Work_Para.CupDish1_LeftBottom_Position,sizeof(WorkParaCombine_TypeDef)-2) == crc_Value)
 			;
@@ -327,6 +317,7 @@ void SysParaInitConfig(void)
 	}
 //	WorkPositionParaConfig();    			//读取机器坐标校准的数据
 //	SaveCupDataToEEprom();
+//	FaultRecordInit();   //故障节点数据链表初始化
 }
 /********************************************************
 	功能：		根据校准的参数来配置三个杯盘相对坐标系的实际的杯间距值
@@ -574,14 +565,13 @@ void GetCaptureCupPosition(u8 CupNum,u16 X_Offset,u16 Y_Offset,u32 *X_Offset_Pos
 ********************************************************/
 void SaveCupDataToEEprom(void)
 {
-	u8 buf[1];
 	u16 DataLen = 0;
 	u16 X_Offset = 0;
 	u16 Y_Offset = 0;
 	u32 X_Offset_Position;
 	u32 Y_Offset_Position;
 	DataLen = sizeof(CapturePara_TpyeDef);
-	if(CapturePara.CurrentCaptureNum>=0 && CapturePara.CurrentCaptureNum<=112)
+	if(CapturePara.CurrentCaptureNum>0 && CapturePara.CurrentCaptureNum<=112)
 		CapturePara.CupDishNum = 3;
 	else if(CapturePara.CurrentCaptureNum>112 && CapturePara.CurrentCaptureNum<=224)
 		CapturePara.CupDishNum = 2;
@@ -639,29 +629,26 @@ void SaveMachhineWorkStationToEeprom(void)
 ********************************************************/
 void ReportHardwaretatus(void)
 {
-	u8 PCT_CurrStatus;
-	EM_SW_STATUS EM_SW_Status;
 	Package_Info package_data;
 	memset(package_data.buff,0,8);
-	PCT_CurrStatus = GetAllPctStatus();					//得到当前所有的光电开关的状态信息
-	EM_SW_Status = ((u8)EM_SW_Get_Status(EM_SW_CH_H)<<7|(u8)EM_SW_Get_Status(EM_SW_CH_G)<<6|
+	SysCurrSataus.MotorStatus = GetAllMotorStatus();
+	SysCurrSataus.PctStatus = GetAllPctStatus();					//得到当前所有的光电开关的状态信息
+	SysCurrSataus.EWStatus = ((u8)EM_SW_Get_Status(EM_SW_CH_H)<<7|(u8)EM_SW_Get_Status(EM_SW_CH_G)<<6|
 					(u8)EM_SW_Get_Status(EM_SW_CH_F)<<5|(u8)EM_SW_Get_Status(EM_SW_CH_E)<<4|
 					(u8)EM_SW_Get_Status(EM_SW_CH_D)<<3|(u8)EM_SW_Get_Status(EM_SW_CH_C)<<2|
 					(u8)EM_SW_Get_Status(EM_SW_CH_B)<<1|(u8)EM_SW_Get_Status(EM_SW_CH_A)<<0);
-	SysCurrSataus.HardStatus.AllStatus = (u16)(EM_SW_Status<<8 | PCT_CurrStatus);
-
-	SysCurrSataus.ExecutePara.CurrCaptureCupNum = CurrCaptureCupNum;
-	SysCurrSataus.ExecutePara.CurrThrowCupNum = CUP_TOTAL_NUM - CurrCaptureCupNum - 2;
-	SysCurrSataus.ExecutePara.CurrExecuteMotion = CurrComMotion;
-	package_data.command = REPORT_HARD_STAUS;
+	SysCurrSataus.LocationStatus = CurrComMotion;
+	package_data.command = CMD_REPORT_HARD_STAUS;
 	package_data.src_id = local_id;
 	package_data.dest_id = CAN_MAIN_MACHINE_ID;
 	package_data.pack_status = 0;
-	package_data.ide = CAN_ID_STD;
+	package_data.seg_polo = 0;
+	package_data.seg_num = 0;
+	package_data.ide = CAN_ID_EXT;
 	package_data.rtr = CAN_RTR_DATA;
 	package_data.upgrade_pack_num = 0;
-	package_data.dlc = sizeof(SysStatusInquiry_TypeDef);
-	memcpy(package_data.buff,&SysCurrSataus.HardStatus.AllStatus,package_data.dlc);
+	package_data.dlc = 8/*sizeof(SysStatusInquiry_TypeDef)*/;
+	memcpy(&package_data.buff[0],&SysCurrSataus.MotorStatus,sizeof(SysStatusInquiry_TypeDef));
 	CAN_Send_Msg(&package_data);
 }
 /*
@@ -689,13 +676,6 @@ void EEpromTest(void)
 void CanSendData(u8 DestId,CanMotionDispatchCmd_TypeDef ExecuteCmd,AnswerCode_TypeDef AnswerType)
 {
 	Package_Info package_data;
-	package_data.src_id = local_id;
-	package_data.dest_id = DestId;
-	package_data.pack_status = 0;
-	package_data.command = ExecuteCmd;
-	package_data.ide = CAN_ID_EXT;
-	package_data.rtr = CAN_RTR_DATA;
-	package_data.upgrade_pack_num = 0;
 	for(u8 i=0;i<FAULT_TYPE_MAX_NUM;i++)
 	{
 		if(AnswerType == FaultCmdTab[i].Fault_Type)
@@ -704,8 +684,20 @@ void CanSendData(u8 DestId,CanMotionDispatchCmd_TypeDef ExecuteCmd,AnswerCode_Ty
 			break;
 		}
 	}
+	package_data.command = ExecuteCmd;
+	package_data.src_id = local_id;
+	package_data.dest_id = DestId;
+	package_data.pack_status = 0;
+	package_data.seg_polo = 0;
+	package_data.ide = CAN_ID_EXT;
+	package_data.rtr = CAN_RTR_DATA;
+	package_data.seg_num = 0;
+	package_data.upgrade_pack_num = 0;
+	
 	package_data.dlc = strlen((char*)package_data.buff);
 	CAN_Send_Msg(&package_data);
+	if(AnswerType == REC_ACK)
+		delay_ms(50);
 }
 //CAN发送工作位校准参数
 void CanSendWorkStationInfo(u8 DestId,CanMotionDispatchCmd_TypeDef ExecuteCmd,u8 *buf,u16 buf_len)
@@ -714,13 +706,12 @@ void CanSendWorkStationInfo(u8 DestId,CanMotionDispatchCmd_TypeDef ExecuteCmd,u8
 	stage = buf_len / 8;
 	for(u16 i=0;i<stage;i++)
 	{
-		u16 len;
 		Package_Info package_data;
 		package_data.src_id = local_id;
 		package_data.dest_id = DestId;
 		package_data.pack_status = 0;
 		package_data.command = ExecuteCmd;
-		package_data.ide = CAN_ID_STD;
+		package_data.ide = CAN_ID_EXT;
 		package_data.rtr = CAN_RTR_DATA;
 		package_data.upgrade_pack_num = 0;
 		package_data.seg_num = i;
@@ -942,7 +933,7 @@ void FingerOpen(PCT_NUMBER Pct_Num)
 		Finger_Sw_Status(FINGER_OPEN);
 		delay_ms(400);
 		Finger_Sw_Status(FINGER_CLOSE);
-		delay_ms(200);
+		delay_ms(400);
 		if(PCT_Get_Status(Pct_Num))
 			continue;
 		else if(!PCT_Get_Status(Pct_Num))
@@ -1021,7 +1012,6 @@ void X_MotorParaConfig(MotionCmd_TypeDef X_Motion,u32 X_TargetPulse,MOTOR_DIR Di
 			X_ConfigPara.direction = Dir;
 			X_ConfigPara.pct_number = PCT_NO;
 			X_ConfigPara.pct_encoder_number = ENCODER_X_AXIS;
-			break;
 		}break;
 		case X_TO_CUP_DISH:
 			X_ConfigPara.status = X_TO_CUP_DISH;
@@ -1073,7 +1063,7 @@ void X_MotorParaConfig(MotionCmd_TypeDef X_Motion,u32 X_TargetPulse,MOTOR_DIR Di
 		X_ConfigPara.const_pulse = X_TargetPulse; 
 		X_ConfigPara.multiple = 1;
 		X_ConfigPara.pct_zero_run_pulse = 0;
-		MotorMotionConfig_Init(&X_ConfigPara,DEVICE_UNIT_X,&mindist_up_table[DEVICE_UNIT_X][3],NULL);
+		MotorMotionConfig_Init(&X_ConfigPara,DEVICE_UNIT_X,&mindist_up_table[DEVICE_UNIT_X][7],NULL);
 	}
 	else if(X_TargetPulse < ((X_LARGE_ACC_PULSE + X_LARGE_DEC_PULSE) + 200 )) //如果目标脉冲数小于加减速阶段的总的脉冲数之和的话，执行小距离的加减速控制
 	{
@@ -1166,7 +1156,7 @@ void Y_MotorParaConfig(MotionCmd_TypeDef Y_Motion,u32 Y_TargetPulse,MOTOR_DIR Di
 		Y_ConfigPara.const_pulse = Y_TargetPulse; 
 		Y_ConfigPara.multiple = 1;
 		Y_ConfigPara.pct_zero_run_pulse = 0;
-		MotorMotionConfig_Init(&Y_ConfigPara,DEVICE_UNIT_Y,&mindist_up_table[DEVICE_UNIT_Y][3],NULL);
+		MotorMotionConfig_Init(&Y_ConfigPara,DEVICE_UNIT_Y,&mindist_up_table[DEVICE_UNIT_Y][7],NULL);
 	}
 	else if(Y_TargetPulse < ((Y_LARGE_ACC_PULSE + Y_LARGE_DEC_PULSE) + 200))
 	{
@@ -1272,7 +1262,6 @@ void MixMotor_ParaConfig(MotionCmd_TypeDef MixMoition,u32 Mix_TargetPulse,MOTOR_
 			Mix_ConfigPara.status = MIX_TO_ORIGIN;
 			Mix_ConfigPara.direction = Dir;
 			Mix_ConfigPara.pct_number = PCT_NO;  //混匀盘光电开关
-			return;
 		}break;
 		case MIX_START_RUNING:
 		{
@@ -1339,41 +1328,60 @@ void MotorMotionConfig_Init(MotionParaConfig_TypeDef *ConfigPara,DeviceUnit_Type
 ********************************************************/
 void Z_To_WorkStation(MotionCmd_TypeDef WorkStation,orUnloadCup_TypeDef orUnloadCup)
 {
+	static u8 PreStatus = 0XFF;
 	CaptureFingerPulse_TypeDef AxisPulase;
 	if(WorkStation == Z_TO_ORIGIN)
 	{
+		if(PreStatus == 1)
+		{
+			PreStatus = 0XFF;
+			CaptureCupExistFlag = 1;
+		}
 		FingerPositionData.Target_Position.Fingrer_Position_Z = Mchine_Position.Machine_Relative_Oringin_Z;
 		AxisPulase = CalRouteTotalPulse(&FingerPositionData);   //计算三个轴的目标脉冲数
 		FingerPositionData.Curr_Position.Fingrer_Position_Z = Mchine_Position.Machine_Relative_Oringin_Z;
 	}
 	else if(WorkStation == Z_TO_CUPDISH)
 	{
+		PreStatus = 1;
 		FingerPositionData.Target_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.CupDish_Position;
 		AxisPulase = CalRouteTotalPulse(&FingerPositionData);   //计算三个轴的目标脉冲数
 		FingerPositionData.Curr_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.CupDish_Position;
 	}
 	else if(WorkStation == Z_TO_HATCH)
 	{
+		PreStatus = 1;
 		FingerPositionData.Target_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.Hatch_Position;
 		AxisPulase = CalRouteTotalPulse(&FingerPositionData);
 		if(orUnloadCup == CONFIRM_UNLOAD_CUP)
+		{
 			AxisPulase.Finger_Pulse_Z -= CAPTURE_UNLOAD_CUP_HEIGHT_DIF;
+			PreStatus = 0;
+		}
 		FingerPositionData.Curr_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.Hatch_Position;
 	}
 	else if(WorkStation == Z_TO_MIX)
 	{  
+		PreStatus = 1;
 		FingerPositionData.Target_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.Mix_Position;
 		AxisPulase = CalRouteTotalPulse(&FingerPositionData);
 		if(orUnloadCup == CONFIRM_UNLOAD_CUP)
+		{
 			AxisPulase.Finger_Pulse_Z -= CAPTURE_UNLOAD_CUP_HEIGHT_DIF;
+			PreStatus = 0;
+		}
 		FingerPositionData.Curr_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.Mix_Position;
 	}
 	else if(WorkStation == Z_TO_WASTE)
 	{
+		PreStatus = 1;
 		FingerPositionData.Target_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.Waste_Position;
 		AxisPulase = CalRouteTotalPulse(&FingerPositionData);
 		if(orUnloadCup == CONFIRM_UNLOAD_CUP)
+		{
 			AxisPulase.Finger_Pulse_Z -= CAPTURE_UNLOAD_CUP_HEIGHT_DIF;
+			PreStatus = 0;
+		}
 		FingerPositionData.Curr_Position.Fingrer_Position_Z = WorkParaCombine.Z_Work_Para.Waste_Position;
 	}
 	//AxisPulase.Finger_Pulse_Z = AxisPulase.Finger_Pulse_Z;
@@ -1389,7 +1397,7 @@ void Z_To_WorkStation(MotionCmd_TypeDef WorkStation,orUnloadCup_TypeDef orUnload
 void XY_To_WorkStation(MotionCmd_TypeDef X_WorkStation,MotionCmd_TypeDef Y_WorkStation,u32 X_Position,u32 Y_Position)
 {
 	CaptureFingerPulse_TypeDef AxisPulase;
-
+	
 	if(X_WorkStation==X_TO_ORIGIN || Y_WorkStation==Y_TO_ORIGIN)
 	{
 		if(X_WorkStation==X_TO_ORIGIN)
@@ -1505,14 +1513,14 @@ void CupCaptureStatusJudge(void)
 			else
 				CaptureCupExecuteStatus = NO_EXECUTE;
 		}break;
-		case COM_CURR_TO_CAPTURE: //复位点故去抓杯
+		/*case COM_CURR_TO_CAPTURE: //下面为不断重复抓杯部分要执行的
 		case C0M_HATCH_TO_CUP:
 		{
 			if(PCT_Get_Status(PCT_FINGER) == 0)
 				CaptureCupExecuteStatus = RE_CAPTURE_CUP;
 			else
 				CaptureCupExecuteStatus = NO_EXECUTE;
-		}break;
+		}break;*/
 		default:break;
 	}
 }
@@ -1606,7 +1614,7 @@ void Go_SendConfigPara(void)
 		{
 
 			Len = sizeof(Work_Para_TypeDef);
-			CanSendWorkStationInfo(CAN_MAIN_MACHINE_ID,COM_REPORT_CONFIG_PARA,&Work_Para.Para_Version[0],Len);
+			CanSendWorkStationInfo(CAN_MAIN_MACHINE_ID,CMD_SET_AXIS_WASPY_PARA,&Work_Para.Para_Version[0],Len);
 			SendOtherStatusInfoFlag = FINISHED;
 			//CanSendData(0x00,CMD_COM_ORIGN_TO_HATCH,REC_ACK);
 		}break;
@@ -1696,6 +1704,7 @@ void Go_Curr_To_Origin(void)
 		default:break;
 	}
 }
+
 /********************************************************
 	功能：		从原点到抓杯点的动作调度
 	输入参数：	无
@@ -1704,6 +1713,8 @@ void Go_Curr_To_Origin(void)
 void Go_Curr_To_CaptureCup(void)
 {
 	u16 X_Offset,Y_Offset;
+	u16 CaptureCupCnt = CapturePara.CurrentCaptureNum;
+	
 	GetCaptureCupOffset(CapturePara.CurrentCaptureNum,&X_Offset,&Y_Offset);
 	if(CapturePara.CurrentCaptureNum>0 && CapturePara.CurrentCaptureNum<=112)
 		CapturePara.CupDishNum = 3;
@@ -1711,6 +1722,7 @@ void Go_Curr_To_CaptureCup(void)
 		CapturePara.CupDishNum = 2;
 	else if(CapturePara.CurrentCaptureNum>=224 && CapturePara.CurrentCaptureNum<=336)
 		CapturePara.CupDishNum = 1;
+	
 	#if RUN_MODE == 1
 		GetCaptureCupPosition(CapturePara.CupDishNum,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);  //已经校准好了是用的便宜位置脉冲数
 	#else
@@ -1773,20 +1785,17 @@ void Go_Curr_To_CaptureCup(void)
 	CombineStage = Combine_Stage.MotionStatus & 0xFFFF;
 	switch(CombineStage)
 	{
-		case 0X0000: 
-			{
-				XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_TO_CUP_DISH,CapturePara.X_Position,CapturePara.Y_Position);
-				//CanSendData(0x00,CMD_COM_ORIGN_TO_CAPTUREP_POS,REC_ACK);
-			}break;
-		case 0X0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_CUPDISH,UNCONFIRM_UNLOAD_CUP);break;		//XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN);
-		case 0X0003:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);break;  		//回到复位点
+		case 0X0000:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);break;
+		case 0X0001:XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_TO_CUP_DISH,CapturePara.X_Position,CapturePara.Y_Position);break;
+		case 0X0003:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_CUPDISH,UNCONFIRM_UNLOAD_CUP);break;		//XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN);
 		case 0X0007:
-			ComMotionFinishFlag = TRUE;
-			CapturePara.CurrentCaptureNum +=1;
-			if(CapturePara.CurrentCaptureNum == 337)
-				CapturePara.CurrentCaptureNum = 1;
+			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
+			CaptureCupCnt ++;
+			if(CaptureCupCnt == 337)
+				CaptureCupCnt = 1;
+			CapturePara.CurrentCaptureNum = CaptureCupCnt;
 			break;
-		case 0X000F:break;
+		case 0X000F:ComMotionFinishFlag = TRUE;break;
 		case 0X001F:break;
 		case 0X003F:break;
 		case 0X007F:break;
@@ -1850,10 +1859,9 @@ void Go_Orign_To_HatchOut(void)
 			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_HATCH_OUT,Y_TO_HATCH_OUT,0,0);
 			//CanSendData(0x00,CMD_COM_ORIGN_TO_HATCH,REC_ACK);
 		}break;
-		case 0x0001:
-			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_HATCH,UNCONFIRM_UNLOAD_CUP);break;
-		case 0x0003:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);break;
-		case 0x0007:ComMotionFinishFlag = TRUE;break;
+		case 0x0001:ComMotionFinishFlag = TRUE;break;
+		case 0x0003:break;
+		case 0x0007:break;
 		case 0x000F:break;
 		case 0x001F:break;
 		case 0x003F:break;
@@ -1926,8 +1934,8 @@ void Go_Orign_To_Waste1(void)
 			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE1,Y_TO_WASTE1,0,0);
 			//CanSendData(0x00,CMD_COM_ORIGN_TO_HATCH,REC_ACK);
 		}break;
-		case 0x0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,UNCONFIRM_UNLOAD_CUP);break;
-		case 0x0003:ComMotionFinishFlag = TRUE;
+		case 0x0001:ComMotionFinishFlag = TRUE;break;
+		case 0x0003:
 			/*XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
 			XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);*/
 			break;
@@ -1965,12 +1973,9 @@ void Go_Orign_To_Waste2(void)
 			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE2,Y_TO_WASTE2,0,0);
 			//CanSendData(0x00,CMD_COM_ORIGN_TO_HATCH,REC_ACK);
 		}break;
-		case 0x0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,UNCONFIRM_UNLOAD_CUP);break;
-		case 0x0003:
-			XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);
-			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
-			break;
-		case 0x0007:ComMotionFinishFlag = TRUE;break;
+		case 0x0001:ComMotionFinishFlag = TRUE;break;
+		case 0x0003:break;
+		case 0x0007:break;
 		case 0x000F:break;
 		case 0x001F:break;
 		case 0x003F:break;
@@ -2003,7 +2008,7 @@ void Go_Orign_To_Waste_Throw_Cup(void)
 			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE2,Y_TO_WASTE2,0,0);
 			//CanSendData(0x00,CMD_COM_ORIGN_TO_HATCH,REC_ACK);
 		}break;
-		case 0x0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,UNCONFIRM_UNLOAD_CUP);break;
+		case 0x0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,CONFIRM_UNLOAD_CUP);break;
 		case 0x0003:
 			XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);
 			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
@@ -2101,8 +2106,6 @@ void Go_Cup_To_HatchOut(void)
 void Go_Cup_To_Wast1(void)
 {
 	u16 CombineStage = 0;
-	u16 X_Offset;   //X方向上的脉冲
-	u16 Y_Offset;    //Y方向上的脉冲
 	CombineStage = Combine_Stage.MotionStatus & 0xFFFF;
 	switch(CombineStage)
 	{
@@ -2110,25 +2113,10 @@ void Go_Cup_To_Wast1(void)
 		case 0X0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,CONFIRM_UNLOAD_CUP);break;
 		case 0X0003:
 			XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);
-			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);break;
-		case 0X0007:
-		{
-			GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
-			if(CurrCaptureCupNum <= 112)
-			{
-				GetCaptureCupPosition(3,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
-			}
-			else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
-			{
-				GetCaptureCupPosition(2,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
-			}
-			else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
-			{
-				GetCaptureCupPosition(1,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
-			}
-			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_TO_CUP_DISH,CapturePara.X_Position,CapturePara.Y_Position);
-		}break;
-		case 0X000F:ComMotionFinishFlag = TRUE;break;
+			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
+			break;
+		case 0X0007:ComMotionFinishFlag = TRUE;break;
+		case 0X000F:break;
 		case 0X001F:break;
 		case 0X003F:break;
 		case 0X007F:break;
@@ -2152,33 +2140,17 @@ void Go_Cup_To_Wast1(void)
 void Go_Cup_To_Wast2(void)
 {
 	u16 CombineStage = 0;
-	u16 X_Offset;   //X方向上的脉冲
-	u16 Y_Offset;    //Y方向上的脉冲
 	CombineStage = Combine_Stage.MotionStatus & 0xFFFF;
 	switch(CombineStage)
 	{
 		case 0X0000:XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE2,Y_TO_WASTE2,0,0);break;
-		case 0X0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,UNCONFIRM_UNLOAD_CUP);break;
+		case 0X0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,CONFIRM_UNLOAD_CUP);break;
 		case 0X0003:
 			XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);
 			XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
 			break;
-		case 0X0007:
-			GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
-			if(CurrCaptureCupNum <= 112)
-			{
-				GetCaptureCupPosition(3,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
-			}
-			else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
-			{
-				GetCaptureCupPosition(2,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
-			}
-			else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
-			{
-				GetCaptureCupPosition(1,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
-			}
-			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_TO_CUP_DISH,CapturePara.X_Position,CapturePara.Y_Position);break;
-		case 0X000F:ComMotionFinishFlag = TRUE;break;
+		case 0X0007:ComMotionFinishFlag = TRUE;break;
+		case 0X000F:break;
 		case 0X001F:break;
 		case 0X003F:break;
 		case 0X007F:break;
@@ -2407,32 +2379,46 @@ void Go_Mix_To_HatchOut(void)
 ********************************************************/
 void Go_Hatch_To_CupDish(void)
 {
+	u16 X_Offset,Y_Offset;    //Y方向上的脉冲
+	
+	u16 CaptureCupCnt = CapturePara.CurrentCaptureNum;
+	GetCaptureCupOffset(CapturePara.CurrentCaptureNum,&X_Offset,&Y_Offset);
+	if(CapturePara.CurrentCaptureNum>0 && CapturePara.CurrentCaptureNum<=112)
+		CapturePara.CupDishNum = 3;
+	else if(CapturePara.CurrentCaptureNum>112 && CapturePara.CurrentCaptureNum<=224)
+		CapturePara.CupDishNum = 2;
+	else if(CapturePara.CurrentCaptureNum>=224 && CapturePara.CurrentCaptureNum<=336)
+		CapturePara.CupDishNum = 1;
+	
 	u16 CombineStage = 0;
-	u16 X_Offset;   //X方向上的脉冲
-	u16 Y_Offset;    //Y方向上的脉冲
 	CombineStage = Combine_Stage.MotionStatus & 0xFFFF;
 	switch(CombineStage)
 	{
 		case 0X0000:
 		{
-			GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
-			if(CurrCaptureCupNum <= 112)
+			if( CapturePara.CurrentCaptureNum <= 112)
 			{
 				GetCaptureCupPosition(3,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
 			}
-			else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
+			
+			else if( CapturePara.CurrentCaptureNum>112 &&  CapturePara.CurrentCaptureNum <= 224)
 			{
 				GetCaptureCupPosition(2,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
 			}
-			else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
+			else if( CapturePara.CurrentCaptureNum>224 &&  CapturePara.CurrentCaptureNum<=336)
 			{
 				GetCaptureCupPosition(1,X_Offset,Y_Offset,&CapturePara.X_Position,&CapturePara.Y_Position);
 			}
 			XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_TO_CUP_DISH,CapturePara.X_Position,CapturePara.Y_Position);
 		}break;
-		case 0X0001:ComMotionFinishFlag = TRUE;break;
-		case 0X0003:break;
-		case 0X0007:break;
+		case 0X0001:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_CUPDISH,UNCONFIRM_UNLOAD_CUP);break;
+		case 0X0003:XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
+			CaptureCupCnt ++;
+			if(CaptureCupCnt == 337)
+				CaptureCupCnt = 1;
+			CapturePara.CurrentCaptureNum = CaptureCupCnt;
+			break;
+		case 0X0007:ComMotionFinishFlag = TRUE;break;
 		case 0X000F:break;
 		case 0X001F:break;
 		case 0X003F:break;
@@ -2698,6 +2684,9 @@ void SysInit(void)
 	LED_ON;
 }
 u8 CanCmdList = 0;
+
+//static u16 CaptureCupFailTimes = 0;
+//static u16 UnloadCupFailTimes = 0;
 /********************************************************
 	功能：		对各个电机轴的参数复位清零操作
 	输入参数：	无
@@ -2756,38 +2745,37 @@ void ResetJudge(DeviceUnit_TypeDef MotorSel)
 		case DEVICE_UNIT_X:
 		{
 			if(PCT_1_STATUS == 1)   	//已经触发,不做任何处理
-				return;
+			{;}
 			else   						//未触发光电开关
 				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[0],speed_up_table[MotorTab[0]],speed_down_table[MotorTab[0]]);
 		}break;
 		case DEVICE_UNIT_Y:
 		{
 			if(PCT_2_STATUS == 1)   	//已经触发,不做任何处理
-				return;
+			{;}
 			else   						//未触发光电开关
 				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[1],speed_up_table[MotorTab[1]],speed_down_table[MotorTab[1]]);
 		}break;
 		case DEVICE_UNIT_Z:
 		{
 			if(PCT_3_STATUS == 1)   	//已经触发,不做任何处理
-				return;
+			{;}
 			else   						//未触发光电开关
 				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[2],speed_up_table[MotorTab[2]],speed_down_table[MotorTab[2]]);
 		}break;
 		case DEVICE_UNIT_MIX:
-			return;
 			break;
 		default:break;
 	}
 }
+CanMotionDispatchCmd_TypeDef CurrExecuteSingleCmd = CMD_COM_NULL;
 /********************************************************
 	功能：		动作调度处理
 	输入参数：	无
 	返回值：		无
 ********************************************************/
-void ComMotin_AssistHandle(void)
+u8 ComMotin_AssistHandle(void)
 {
-	u8 Data = 0;
 	u8 i;
 	static u8 Stage = 0;
 	switch(CurrFaultLevel)
@@ -2795,27 +2783,68 @@ void ComMotin_AssistHandle(void)
 		case LEVEL_LOWEST:  			//最低级别
 		{
 			if(motor_info[DEVICE_UNIT_Z].finish==FINISHED || motor_info[DEVICE_UNIT_MIX].finish==FINISHED ||
-				(motor_info[DEVICE_UNIT_X].finish==FINISHED && motor_info[DEVICE_UNIT_Y].finish==FINISHED) ||
-				/*FingerEcttmStatus==FINISHED ||*/ CabinEcttmStatus==FINISHED || SendOtherStatusInfoFlag==FINISHED || ComMotionFinishFlag == TRUE)
+				(motor_info[DEVICE_UNIT_X].finish==FINISHED||motor_info[DEVICE_UNIT_Y].finish==FINISHED) ||
+				/*FingerEcttmStatus==FINISHED ||*/ CabinEcttmStatus==FINISHED || SendOtherStatusInfoFlag==FINISHED || ComMotionFinishFlag==TRUE)
 			{
 				if(motor_info[DEVICE_UNIT_Z].finish == FINISHED)
+				{
 					motor_info[DEVICE_UNIT_Z].finish = NO_FINISH;
+					if(CurrExecuteSingleCmd != CMD_COM_NULL)
+					{
+						CanSendData(CAN_MAIN_MACHINE_ID,CurrExecuteSingleCmd,FIN_ACK);
+						CurrExecuteSingleCmd = CMD_COM_NULL;
+					}
+				}
 				if(motor_info[DEVICE_UNIT_MIX].finish == FINISHED)
 				{
 					motor_info[DEVICE_UNIT_MIX].finish = NO_FINISH;
+					if(CurrExecuteSingleCmd != CMD_COM_NULL)
+					{
+						CanSendData(CAN_MAIN_MACHINE_ID,CurrExecuteSingleCmd,FIN_ACK);
+						CurrExecuteSingleCmd = CMD_COM_NULL;
+					}
 					//return;  //这里根据需要加入是否是并行还是串行动作
 				}
-				if(motor_info[DEVICE_UNIT_X].finish==FINISHED && motor_info[DEVICE_UNIT_Y].finish==FINISHED)
+				if(motor_info[DEVICE_UNIT_X].finish==FINISHED || motor_info[DEVICE_UNIT_Y].finish==FINISHED)
 				{
-					motor_info[DEVICE_UNIT_X].finish = NO_FINISH;
-					motor_info[DEVICE_UNIT_Y].finish = NO_FINISH;
+					if(motor_info[DEVICE_UNIT_X].finish==FINISHED && motor_info[DEVICE_UNIT_Y].finish==FINISHED)
+					{
+						motor_info[DEVICE_UNIT_X].finish = NO_FINISH;
+						motor_info[DEVICE_UNIT_Y].finish = NO_FINISH;
+					}
+					else if(CurrExecuteSingleCmd != CMD_COM_NULL)
+					{
+						if(motor_info[DEVICE_UNIT_X].finish==FINISHED)
+							motor_info[DEVICE_UNIT_X].finish = NO_FINISH;
+						if(motor_info[DEVICE_UNIT_Y].finish==FINISHED)
+							motor_info[DEVICE_UNIT_Y].finish = NO_FINISH;
+						CanSendData(CAN_MAIN_MACHINE_ID,CurrExecuteSingleCmd,FIN_ACK);
+						CurrExecuteSingleCmd = CMD_COM_NULL;
+						return 1;
+					}
+					else 
+						return 1;
 				}
 				/*if(FingerEcttmStatus == FINISHED)   			//不执行组合动作的时候注释掉这个
 					FingerEcttmStatus = NO_FINISH;*/
 				if(CabinEcttmStatus == FINISHED)
+				{
 					CabinEcttmStatus = NO_FINISH;
+					if(CurrExecuteSingleCmd != CMD_COM_NULL)
+					{
+						CanSendData(CAN_MAIN_MACHINE_ID,CurrExecuteSingleCmd,FIN_ACK);
+						CurrExecuteSingleCmd = CMD_COM_NULL;
+					}
+				}
 				if(SendOtherStatusInfoFlag==FINISHED)
+				{
 					SendOtherStatusInfoFlag = NO_FINISH;
+					if(CurrExecuteSingleCmd != CMD_COM_NULL)
+					{
+						CanSendData(CAN_MAIN_MACHINE_ID,CurrExecuteSingleCmd,FIN_ACK);
+						CurrExecuteSingleCmd = CMD_COM_NULL;
+					}
+				}
 				if(CurrComMotion != COM_NO_MOTION)  			//没有动作指令执行的话则不进入
 				{
 					if(ComMotionFinishFlag == TRUE)  			//运行完毕后判断标志为是否已经置位，若是则进行下一步
@@ -2823,7 +2852,10 @@ void ComMotin_AssistHandle(void)
 						ComMotionFinishFlag = FALSE;
 						Stage = 0;
 						ClearMotionList();  //清楚动作列表
-						//CanSendMotionFinishCmd(0X00,CurrComMotion);//CAN总线发送动作完成指令
+						if(CurrComMotion!=COM_VERSION_INQUIRE && CurrComMotion!=COM_VERSION_INQUIRE && CurrComMotion!=COM_REPORT_HARD_STAUS && CurrComMotion!=COM_REPORT_CONFIG_PARA)
+						{
+							CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[CurrComMotion].CanCmd,FIN_ACK);
+						}
 						//用来做协处理 
 						CupCaptureStatusJudge();  //判断手指上有没有杯子
 						if(CurrComMotion == COM_CURR_TO_ORIGIN)    	//当前动作为执行到原点复位动作
@@ -2831,9 +2863,8 @@ void ComMotin_AssistHandle(void)
 							for(i=0;i<4;i++)
 								ResetJudge(MotorTab[i]);  		   	//复位检测处理
 							ResetParaInit(DEVICE_TOTAL);
-						}
-						CurrComMotion = COM_NO_MOTION;  			//组合动作清除
-						CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[CurrComMotion].CanCmd,FIN_ACK); //发送动作完成指令
+						} 
+						CurrComMotion = COM_NO_MOTION;  			//组合动作清除 
 					}
 					else  //组合动作还没有执行完毕的话继续进行
 					{
@@ -2841,7 +2872,7 @@ void ComMotin_AssistHandle(void)
 						if(Stage > 16)
 						{
 							Stage = 0;
-							return;
+							return 1;
 						}
 						switch(Stage)
 						{
@@ -2863,26 +2894,39 @@ void ComMotin_AssistHandle(void)
 							case 16:Combine_Stage.MotionStage.Stage16 = 1;break;
 							default:break;
 						}
-						//CAN_Cmd_Combine_Motion[CurrComMotion]();  //再次执行组合动作里面的动作函数
 						CAN_Cmd_Combine_Motion[CurrComMotion].CanMotion();
+						//CAN_Cmd_Combine_Motion[CurrComMotion]();  //再次执行组合动作里面的动作函数
+						if(CaptureCupExistFlag == 1)  //此次指令有抓杯动作
+						{
+							if(!PCT_Get_Status(PCT_FINGER))  //没有杯子的话
+							{
+								CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[CurrComMotion].CanCmd,FAULT_CAPTURE_FAIL);
+								CaptureCupExistFlag = 0;
+								ComMotionFinishFlag = FALSE;
+								Stage = 0;
+								ClearMotionList();  //清楚动作列表
+								CurrComMotion = COM_NO_MOTION; 
+								return 1;
+							}
+							CaptureCupExistFlag = 0;
+						}
 					}
 				}
 			}
 		}break;
 		case STOP_LEVLE:  			//停止级
 		{
-			CanSendData(CAN_MAIN_MACHINE_ID,STOP_LEVLE,NULL);
+			CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
 			CurrFaultLevel = WAIT_MOTION_FINSH;
 		}break;
 		case PAUSE_LEVEL:  			//暂停级
 		{
-			CanSendData(CAN_MAIN_MACHINE_ID,PAUSE_LEVEL,NULL);
+			CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
 			CurrFaultLevel = WAIT_MOTION_FINSH;
 		}break;
 		case RERESET_LEVEL:   		//复位级
 		{
-			CapturePara.HappenFaultTimes++;
-			CanSendData(CAN_MAIN_MACHINE_ID,RERESET_LEVEL,NULL);
+			CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
  			SaveCupDataToEEprom();
 			CombineReset();
 			ResetParaInit(DEVICE_TOTAL);
@@ -2894,6 +2938,7 @@ void ComMotin_AssistHandle(void)
 			motor_info[DEVICE_UNIT_Y].finish = FINISHED;
 			motor_info[DEVICE_UNIT_Z].finish = FINISHED;
 			motor_info[DEVICE_UNIT_MIX].finish = FINISHED;
+			//FaulRecordtPos = FaultRecordAddNode(FaulRecordtPos);
 			CurrFaultLevel = WAIT_MOTION_FINSH;
 		}break;
 		case WAIT_MOTION_FINSH:   	//等待处理完成后再进行动作
@@ -2905,6 +2950,7 @@ void ComMotin_AssistHandle(void)
 		}break;
 		default:break;
 	}
+	return 0;
 }
 /********************************************************
 	功能：		CAN指令解析
@@ -2915,133 +2961,159 @@ void CAN_Cmd_Haandle(ExecuteCmd_TypeDef *ExecuteCmdData)
 {
 	u16 X_Offset;   			//用于单轴调试找试剂杯用
 	u16 Y_Offset;
-	if(CurrComMotion == COM_NO_MOTION)
-	{ 
-		if(ExecuteCmd.ExecuteCmdValid==1 || CaptureCupExecuteStatus!=NO_EXECUTE)  		//X和Y轴运行在相同的情况下
+	u8 i;
+	
+	if(ExecuteCmdData->ExecuteCmdValid==1 || CaptureCupExecuteStatus!=NO_EXECUTE)  		//X和Y轴运行在相同的情况下
+	{
+		switch(CaptureCupExecuteStatus)
 		{
-			ExecuteCmd.ExecuteCmdValid = 0;  					//外部接口调用*/
-			switch(CaptureCupExecuteStatus)
-			{
-				case RE_CAPTURE_CUP:
-					CaptureCupExecuteStatus = NO_EXECUTE;
-					LocationCompensateFlag = 1;
-					ExecuteCmd.MotionCmd = CMD_COM_CURR_TO_CAPTUREP_POS;
-					break;
-				case UNLOAD_CUP_TO_WASTE:
-					CaptureCupExecuteStatus = NO_EXECUTE;
-					ExecuteCmd.MotionCmd = CMD_COM_STARTMACHINE_THROW_CUP;
-					break;
-				default:break;
-			}
-			for(u8 i=0;i<CAN_COM_MOTION_MAX;i++)
-			{
-				if(ExecuteCmd.MotionCmd == CAN_Cmd_Combine_Motion[i].CanCmd)
-				{
-					ExecuteCmd.MotionCmd = 0X00;
-					CAN_Cmd_Combine_Motion[i].CanMotion();
-					CurrComMotion = CAN_Cmd_Combine_Motion[i].CurrComMotion;
-					CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[i].CanCmd,REC_ACK);
-					break;
-				}
-			}
-			switch(ExecuteCmd.MotionCmd)
-			{
-				case CMD_COM_FAULT_HANDLE_RESULT:   		//中位机故障处理反馈结果
-				{
-					switch(ExecuteCmd.CopoperationCmd_1)
-					{
-						case STOP_LEVLE:
-						{
-							CurrFaultLevel = LEVEL_LOWEST;
-							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
-							//SaveCupDataToEEprom();  		//执行停机前的操作
-						}break;
-						case PAUSE_LEVEL:
-						{
-							CurrFaultLevel = LEVEL_LOWEST;
-							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
-						}break;
-						case RERESET_LEVEL:
-						{
-							CurrFaultLevel = LEVEL_LOWEST;
-							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
-						}break;
-						case WAIT_MOTION_FINSH:
-						{
-							CurrFaultLevel = LEVEL_LOWEST;
-							CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,NULL);
-						}break;
-						default:CurrFaultLevel = LEVEL_LOWEST;break;
-					}
-				}break;
-				case CMD_SINGLE_X_RESET:
-					Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[0],speed_up_table[MotorTab[0]],speed_down_table[MotorTab[0]]);
-					ResetParaInit(DEVICE_UNIT_X);
-					motor_info[DEVICE_UNIT_X].finish = NO_FINISH;
-					break;
-				case CMD_SINGLE_Y_RESET:
-					Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[1],speed_up_table[MotorTab[1]],speed_down_table[MotorTab[1]]);
-					ResetParaInit(DEVICE_UNIT_Y);
-					motor_info[DEVICE_UNIT_Y].finish = NO_FINISH;
-					break;
-				case CMD_SINGLE_Z_RESET:
-					Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[2],speed_up_table[MotorTab[2]],speed_down_table[MotorTab[2]]);
-					ResetParaInit(DEVICE_UNIT_Z);
-					motor_info[DEVICE_UNIT_Z].finish = NO_FINISH;
-					break;
-				case CMD_SINGLE_MIX_RESET:
-					Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[3],speed_up_table[MotorTab[3]],speed_down_table[MotorTab[3]]);
-					ResetParaInit(DEVICE_UNIT_MIX);
-					motor_info[DEVICE_UNIT_MIX].finish = NO_FINISH;
-					break;
-				case CMD_SINGLE_X_TO_CUP:
-					GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
-					if(CurrCaptureCupNum <= 112)
-						X_Offset = WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position + X_Offset*CUP_SPACE;
-					else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
-						X_Offset = WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position + X_Offset*CUP_SPACE;
-					else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
-						X_Offset = WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position + X_Offset*CUP_SPACE;
-					XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_NO_MOTION,X_Offset,0);
-					break;
-			   case CMD_SINGLE_X_TO_HATCHIN:	XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_HATCH_IN,Y_NO_MOTION,0,0);break;
-			   case CMD_SINGLE_X_TO_HATCHOUT:	XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_HATCH_OUT,Y_NO_MOTION,0,0);break;
-			   case CMD_SINGLE_X_TO_MIX:		XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_MIX,Y_NO_MOTION,0,0);break;
-			   case CMD_SINGLE_X_TO_WASTE1:		XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE1,Y_NO_MOTION,0,0);break;
-			   case CMD_SINGLE_X_TO_WASTE2:		XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE2,Y_NO_MOTION,0,0);break;
-			   case CMD_SINGLE_Y_TO_HATCHIN:	XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_HATCH_IN,0,0);break;
-			   case CMD_SINGLE_Y_TO_HATCHOUT:	XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_HATCH_OUT,0,0);break;
-			   case CMD_SINGLE_Y_TO_MIX:		XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_MIX,0,0);break;
-			   case CMD_SINGLE_Y_TO_WASTE1:		XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_WASTE1,0,0);break;
-			   case CMD_SINGLE_Y_TO_WASTE2:		XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_WASTE2,0,0);break;
-			   case CMD_SINGLE_Z_TO_CUP:		XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_CUPDISH,UNCONFIRM_UNLOAD_CUP);break;
-			   case CMD_SINGLE_Z_TO_HATCH:		XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_HATCH,UNCONFIRM_UNLOAD_CUP);break;
-			   case CMD_SINGLE_Z_TO_MIX:		XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_MIX,UNCONFIRM_UNLOAD_CUP);break;
-			   case CMD_SINGLE_Z_TO_WASTE:		XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,UNCONFIRM_UNLOAD_CUP);break;
-			   case CMD_SINGLE_FINGEROPEN:		XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);break;
-			   case CMD_SINGLE_Y_TO_CUP:
-			   {
-					GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
-					if(CurrCaptureCupNum <= 112)
-						Y_Offset = WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position + Y_Offset*CUP_SPACE;
-					else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
-						Y_Offset = WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position + Y_Offset*CUP_SPACE;
-					else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
-						Y_Offset = WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position + Y_Offset*CUP_SPACE;
-					XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_CUP_DISH,0,Y_Offset);
-				}break;
-				default:break;
-			}
-			ExecuteCmd.MotionCmd = 0;
+			/*case RE_CAPTURE_CUP:
+				CaptureCupExecuteStatus = NO_EXECUTE;
+				LocationCompensateFlag = 1;
+				ExecuteCmdData->MotionCmd = CMD_COM_CURR_TO_CAPTUREP_POS;
+				break;*/
+			case UNLOAD_CUP_TO_WASTE:
+				CaptureCupExecuteStatus = NO_EXECUTE;
+				ExecuteCmdData->MotionCmd = CMD_COM_STARTMACHINE_THROW_CUP;
+				break;
+			default:break;
 		}
+		for(i=0;i<CAN_COM_MOTION_MAX;i++)
+		{
+			if(ExecuteCmdData->MotionCmd == CAN_Cmd_Combine_Motion[i].CanCmd)
+			{
+				ExecuteCmdData->ExecuteCmdValid = 0;  					//外部接口调用*/
+				ExecuteCmdData->MotionCmd = CMD_COM_NULL;
+				if(CurrComMotion == COM_NO_MOTION)
+				{ 
+					CurrComMotion = CAN_Cmd_Combine_Motion[i].CurrComMotion;
+					if(CurrComMotion!=COM_VERSION_INQUIRE && CurrComMotion!=COM_VERSION_INQUIRE && CurrComMotion!=COM_REPORT_HARD_STAUS && CurrComMotion!=COM_REPORT_CONFIG_PARA)
+						CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[i].CanCmd,REC_ACK);
+					CAN_Cmd_Combine_Motion[i].CanMotion();
+				}
+				else
+					CanSendData(CAN_MAIN_MACHINE_ID,CAN_Cmd_Combine_Motion[i].CanCmd,REC_NACK);
+				break;
+				return;  //已经有对应指令执行过了
+			}
+		}
+//		if(i == CAN_COM_MOTION_MAX)  //超接收没有相关指令,发送NACK
+//			CanSendData(CAN_MAIN_MACHINE_ID,ExecuteCmdData->MotionCmd,REC_NACK);
 	}
-	if(PCT_8_STATUS != 0)   //抽屉被拉开的话
+	if(ExecuteCmdData->ExecuteCmdValid==1)
 	{
-		CurrFaultLevel = PAUSE_LEVEL;   //机器暂停中
-	}
-	else
-	{
-		CurrFaultLevel = LEVEL_LOWEST; 
+		ExecuteCmdData->ExecuteCmdValid = 0;
+		switch(ExecuteCmdData->MotionCmd)
+		{
+			case CMD_COM_FAULT_HANDLE_RESULT:   		//中位机故障处理反馈结果
+			{
+				switch(ExecuteCmdData->CopoperationCmd_1)
+				{
+					case STOP_LEVLE:
+					{
+						CurrFaultLevel = LEVEL_LOWEST;
+						CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
+						//SaveCupDataToEEprom();  		//执行停机前的操作
+					}break;
+					case PAUSE_LEVEL:
+					{
+						CurrFaultLevel = LEVEL_LOWEST;
+						CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
+					}break;
+					case RERESET_LEVEL:
+					{
+						CurrFaultLevel = LEVEL_LOWEST;
+						CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
+					}break;
+					case WAIT_MOTION_FINSH:
+					{
+						CurrFaultLevel = LEVEL_LOWEST;
+						CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_FAULT_HANDLE_RESULT,FIN_ACK);
+					}break;
+					default:CurrFaultLevel = LEVEL_LOWEST;break;
+				}
+			}break;
+			case CMD_COM_MACHINE_WHOLE_RESET:
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_MACHINE_WHOLE_RESET,REC_ACK);
+				CombineReset();
+				ResetParaInit(DEVICE_TOTAL);
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_COM_MACHINE_WHOLE_RESET,FIN_ACK);
+				break;
+			case CMD_SINGLE_X_RESET:
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_RESET,REC_ACK);
+				//XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_ORIGIN,Y_NO_MOTION,0,0);
+				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[0],speed_up_table[MotorTab[0]],speed_down_table[MotorTab[0]]);
+				motor_info[DEVICE_UNIT_X].finish = NO_FINISH;
+				ResetParaInit(DEVICE_UNIT_X);
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_RESET,FIN_ACK);
+				break;
+			case CMD_SINGLE_Y_RESET:
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_RESET,REC_ACK);
+				//XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_ORIGIN,0,0);
+				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[1],speed_up_table[MotorTab[1]],speed_down_table[MotorTab[1]]);
+				motor_info[DEVICE_UNIT_Y].finish = NO_FINISH;
+				ResetParaInit(DEVICE_UNIT_Y);
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_RESET,FIN_ACK);
+				break;
+			case CMD_SINGLE_Z_RESET:
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_RESET,REC_ACK);
+				//XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_ORIGIN,UNCONFIRM_UNLOAD_CUP);
+				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[2],speed_up_table[MotorTab[2]],speed_down_table[MotorTab[2]]);
+				motor_info[DEVICE_UNIT_Z].finish = NO_FINISH;
+				ResetParaInit(DEVICE_UNIT_Z);
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_RESET,FIN_ACK);
+				break;
+			case CMD_SINGLE_MIX_RESET:
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_MIX_RESET,REC_ACK);
+				Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[3],speed_up_table[MotorTab[3]],speed_down_table[MotorTab[3]]);
+				ResetParaInit(DEVICE_UNIT_MIX);
+				motor_info[DEVICE_UNIT_MIX].finish = NO_FINISH;
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_MIX_RESET,FIN_ACK);
+				break;
+			case CMD_SINGLE_X_TO_CUP:
+				CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_TO_CUP,REC_ACK);
+				GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
+				if(CurrCaptureCupNum <= 112)
+					X_Offset = WorkParaCombine.X_Work_Para.CupDish3_RightBottom_Position + X_Offset*CUP_SPACE;
+				else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
+					X_Offset = WorkParaCombine.X_Work_Para.CupDish2_RightBottom_Position + X_Offset*CUP_SPACE;
+				else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
+					X_Offset = WorkParaCombine.X_Work_Para.CupDish1_RightBottom_Position + X_Offset*CUP_SPACE;
+				XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_CUP_DISH,Y_NO_MOTION,X_Offset,0);
+				CurrExecuteSingleCmd = CMD_SINGLE_X_TO_CUP;
+				break;
+		   case CMD_SINGLE_X_TO_HATCHIN:	CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_TO_HATCHIN,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_HATCH_IN,Y_NO_MOTION,0,0);CurrExecuteSingleCmd = CMD_SINGLE_X_TO_HATCHIN;break;
+		   case CMD_SINGLE_X_TO_HATCHOUT:	CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_TO_HATCHOUT,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_HATCH_OUT,Y_NO_MOTION,0,0);CurrExecuteSingleCmd = CMD_SINGLE_X_TO_HATCHOUT;break;
+		   case CMD_SINGLE_X_TO_MIX:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_TO_MIX,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_MIX,Y_NO_MOTION,0,0);CurrExecuteSingleCmd = CMD_SINGLE_X_TO_MIX;break;
+		   case CMD_SINGLE_X_TO_WASTE1:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_TO_WASTE1,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE1,Y_NO_MOTION,0,0);CurrExecuteSingleCmd = CMD_SINGLE_X_TO_WASTE1;break;
+		   case CMD_SINGLE_X_TO_WASTE2:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_X_TO_WASTE2,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_TO_WASTE2,Y_NO_MOTION,0,0);CurrExecuteSingleCmd = CMD_SINGLE_X_TO_WASTE2;break;
+		   case CMD_SINGLE_Y_TO_HATCHIN:	CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_TO_HATCHIN,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_HATCH_IN,0,0);CurrExecuteSingleCmd = CMD_SINGLE_Y_TO_HATCHIN;break;
+		   case CMD_SINGLE_Y_TO_HATCHOUT:	CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_TO_HATCHOUT,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_HATCH_OUT,0,0);CurrExecuteSingleCmd = CMD_SINGLE_Y_TO_HATCHOUT;break;
+		   case CMD_SINGLE_Y_TO_MIX:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_TO_MIX,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_MIX,0,0);CurrExecuteSingleCmd = CMD_SINGLE_Y_TO_MIX;break;
+		   case CMD_SINGLE_Y_TO_WASTE1:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_TO_WASTE1,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_WASTE1,0,0);CurrExecuteSingleCmd = CMD_SINGLE_Y_TO_WASTE1;break;
+		   case CMD_SINGLE_Y_TO_WASTE2:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_TO_WASTE2,REC_ACK);XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_WASTE2,0,0);CurrExecuteSingleCmd = CMD_SINGLE_Y_TO_WASTE2;break;
+		   case CMD_SINGLE_Z_TO_CUP_CAPTURE:	CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_TO_CUP_CAPTURE,REC_ACK);XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_CUPDISH,UNCONFIRM_UNLOAD_CUP);CurrExecuteSingleCmd = CMD_SINGLE_Z_TO_CUP_CAPTURE;break;
+		   case CMD_SINGLE_Z_TO_HATCH_CAPTURE:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_TO_HATCH_CAPTURE,REC_ACK);XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_HATCH,UNCONFIRM_UNLOAD_CUP);CurrExecuteSingleCmd = CMD_SINGLE_Z_TO_HATCH_CAPTURE;break;
+		   case CMD_SINGLE_Z_TO_HATCH_UNLOAD:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_TO_HATCH_UNLOAD,REC_ACK);XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_HATCH,CONFIRM_UNLOAD_CUP);CurrExecuteSingleCmd = CMD_SINGLE_Z_TO_HATCH_UNLOAD;break;
+		   case CMD_SINGLE_Z_TO_MIX_CAPTURE:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_TO_MIX_CAPTURE,REC_ACK);XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_MIX,UNCONFIRM_UNLOAD_CUP);CurrExecuteSingleCmd = CMD_SINGLE_Z_TO_MIX_CAPTURE;break;
+		   case CMD_SINGLE_Z_TO_MIX_UNLOAD:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_TO_MIX_UNLOAD,REC_ACK);XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_MIX,UNCONFIRM_UNLOAD_CUP);CurrExecuteSingleCmd = CMD_SINGLE_Z_TO_MIX_UNLOAD;break;
+		   case CMD_SINGLE_Z_TO_WASTE_UNLOAD:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Z_TO_WASTE_UNLOAD,REC_ACK);XYZFiner_Motion_Sel.To_Z_To_WorkStation(Z_TO_WASTE,CONFIRM_UNLOAD_CUP);CurrExecuteSingleCmd = CMD_SINGLE_Z_TO_WASTE_UNLOAD;break;
+		   case CMD_SINGLE_FINGEROPEN:		CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_FINGEROPEN,REC_ACK);XYZFiner_Motion_Sel.To_Finger_Open(PCT_FINGER);CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_MIX_RESET,FIN_ACK);/*CurrExecuteSingleCmd = CMD_SINGLE_FINGEROPEN;*/break;
+		   case CMD_SINGLE_Y_TO_CUP:
+		   {
+			   CanSendData(CAN_MAIN_MACHINE_ID,CMD_SINGLE_Y_TO_CUP,REC_ACK);
+				GetCaptureCupOffset(CurrCaptureCupNum,&X_Offset,&Y_Offset);
+				if(CurrCaptureCupNum <= 112)
+					Y_Offset = WorkParaCombine.Y_Work_Para.CupDish3_RightBottom_Position + Y_Offset*CUP_SPACE;
+				else if(CurrCaptureCupNum>112 && CurrCaptureCupNum <= 224)
+					Y_Offset = WorkParaCombine.Y_Work_Para.CupDish2_RightBottom_Position + Y_Offset*CUP_SPACE;
+				else if(CurrCaptureCupNum>224 && CurrCaptureCupNum<=336)
+					Y_Offset = WorkParaCombine.Y_Work_Para.CupDish1_RightBottom_Position + Y_Offset*CUP_SPACE;
+				XYZFiner_Motion_Sel.To_XY_To_WorkStation(X_NO_MOTION,Y_TO_CUP_DISH,0,Y_Offset);
+				CurrExecuteSingleCmd = CMD_SINGLE_Y_TO_CUP;
+			}break;
+			default:break;
+		}
 	}
 }
 #if DEBUG_MODE == 1     
@@ -3249,6 +3321,7 @@ void DebugMode(Package_Info *unpack_data)
 	}
 }
 #endif
+
 //模拟上位机动作调度指令
 CanMotionDispatchCmd_TypeDef UperComputerCmdTab[] = 
 {
@@ -3297,7 +3370,7 @@ void CanProtocolAnalyze(Package_Info *unpack_data)
 	{
 		CanDataHandle = 0XFF;
 		ExecuteCmd.ExecuteCmdValid = 1;  //数据有效
-		ExecuteCmd.MotionCmd = unpack_data->command;
+		ExecuteCmd.MotionCmd = (CanMotionDispatchCmd_TypeDef)unpack_data->command;
 		memcpy(&unpack_data->buff,&ExecuteCmd.CopoperationCmd_1,8);
 	}
 }
@@ -3309,7 +3382,7 @@ void CanProtocolAnalyze(Package_Info *unpack_data)
 void MotionHandle(void)
 {
 	#if RUN_MODE == 1
-		AnalogUperComputerSendCmd();
+		//AnalogUperComputerSendCmd();
 		CanProtocolAnalyze(&unpack_data);
 		ComMotin_AssistHandle();
 		CAN_Cmd_Haandle(&ExecuteCmd);

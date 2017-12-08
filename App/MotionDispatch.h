@@ -35,7 +35,7 @@ typedef enum
 {
 	X_CUPDISH1_LEFTBOTTOM_POSITION = 0, 			 
 	X_CUPDISH1_LEFTTOP_POSITION, 			
-	X_CUPDISH1_RIGHTBOTTOM_POSITION, 		
+	X_CUPDISH1_RIGHTBOTTOM_POSITION,
 	X_CUPDISH1_RIGHTTOP_POSITION, 			
 	X_CUPDISH2_LEFTBOTTOM_POSITION, 			
 	X_CUPDISH2_LEFTTOP_POSITION, 			
@@ -174,9 +174,9 @@ typedef struct
 	u16 crc_value;
 }Work_Para_TypeDef;
 //实际校准后的融合值
-typedef struct
+__packed typedef struct
 {
-	struct
+	__packed struct
 	{
 		s16 CupDish1_LeftBottom_Position;
 		s16 CupDish1_LeftTop_Position;
@@ -196,7 +196,7 @@ typedef struct
 		s16 Waste1_Position;
 		s16 Waste2_Position;
 	}X_Work_Para;
-	struct
+	__packed struct
 	{
 		s16 CupDish1_LeftBottom_Position;
 		s16 CupDish1_LeftTop_Position;
@@ -216,7 +216,7 @@ typedef struct
 		s16 Waste1_Position;
 		s16 Waste2_Position;
 	}Y_Work_Para;
-	struct
+	__packed struct
 	{
 		s16 CupDish_Position;
 		s16 Hatch_Position;
@@ -345,7 +345,7 @@ typedef enum
 	COM_MIX_RUNNING,
 	COM_UNLOAD_CUP,
 }COM_ListTypeDef;
-#define 	CAN_COM_MOTION_MAX       29   //CAN最大可调度的动作数数目
+#define 	CAN_COM_MOTION_MAX       30   //CAN最大可调度的动作数数目
 //CAN动作调度指令
 typedef enum
 {
@@ -399,10 +399,12 @@ typedef enum
 	CMD_SINGLE_Y_TO_WASTE1        = 0X65,
 	CMD_SINGLE_Y_TO_WASTE2        = 0X66,
 	CMD_SINGLE_Z_RESET			  =	0X70,
-	CMD_SINGLE_Z_TO_CUP           = 0X71,
-	CMD_SINGLE_Z_TO_HATCH         = 0X72,
-	CMD_SINGLE_Z_TO_MIX           = 0X73,
-	CMD_SINGLE_Z_TO_WASTE         = 0X74,
+	CMD_SINGLE_Z_TO_CUP_CAPTURE   = 0X71,
+	CMD_SINGLE_Z_TO_HATCH_CAPTURE = 0X72,
+	CMD_SINGLE_Z_TO_HATCH_UNLOAD  = 0X73,
+	CMD_SINGLE_Z_TO_MIX_CAPTURE   = 0X74,
+	CMD_SINGLE_Z_TO_MIX_UNLOAD    = 0X75,
+	CMD_SINGLE_Z_TO_WASTE_UNLOAD  = 0X76,
 	CMD_SINGLE_MIX_RESET		  = 0X80,
 	CMD_SINGLE_FINGEROPEN         = 0X90,
 	CMD_SINGLE_AXIS_WASPY_ADJUST =  0XF0
@@ -437,36 +439,10 @@ typedef struct
 //硬件状态结构
 typedef struct
 {
-	union
-	{
-		u32 AllStatus;
-		struct
-		{
-			u8 Pct_X:		1;
-			u8 Pct_Y:		1;
-			u8 Pct_Z:		1;
-			u8 Pct_Mix:		1;
-			u8 Pct_Finger:	1;
-			u8 Pct_Waste1:	1;
-			u8 Pct_Waste2:	1;
-			u8 Pct_Cabin:	1;
-			
-			u8 Ect_Finger:	1;
-			u8 EctCabin_:	1;
-			
-			u8 motor1:		2;
-			u8 motor2:		2;
-			u8 motor3:		2;
-			u8 motor4:		2;
-			u16 reserve:    14;
-		}UnitStatus;
-	}HardStatus;   					//硬件状态
-	struct
-	{
-		u16 CurrCaptureCupNum;  	//当前抓取的杯子数
-		u16 CurrThrowCupNum;    	//当前扔掉的杯子数
-		COM_ListTypeDef CurrExecuteMotion;  //当前执行的动作
-	}ExecutePara;
+	u8 MotorStatus;   	//电机状态
+	u8 PctStatus;		//光电开关状态
+	u8 EWStatus;		//电磁阀状态
+	COM_ListTypeDef LocationStatus;  //抓杯手指位置状态
 }SysStatusInquiry_TypeDef;  			//系统状态查询
 //中位机反馈的故障的级别，是否停止当前动作还是继续下一步的动作继续执行
 typedef enum
@@ -523,14 +499,41 @@ typedef enum
 	FAULT_Z_TO_MIX,
 	FAULT_Z_TO_WASTE,
 	FAULT_FINGER_OPEN,
+	FAULT_CAPTURE_FAIL,
 }AnswerCode_TypeDef;
-#define FAULT_TYPE_MAX_NUM  40
+#define FAULT_TYPE_MAX_NUM  41
 //错误列表组合
 typedef struct
 {
 	AnswerCode_TypeDef Fault_Type;
 	char *FaultText;
 }FaultTypeCmdTab_TypeDef;
+//系统故障单个节点所对应的状态结构
+typedef struct SysFaultRecord_ListNode_TypeDef
+{
+	union 
+	{
+		u8 AllStatus;
+		struct
+		{
+			u8 X_PctStatis		:1;
+			u8 Y_PctStatus		:1;
+			u8 Z_PctStatis		:1;
+			u8 Mix_PctStatus	:1;
+			u8 Finger_PctStatis	:1;
+			u8 Cabin_PctStatus	:1;
+			u8 FingerSolenoid	:1;
+			u8 CanbinSolenoid	:1;
+		}UnitDevice;
+	}DigitStatus; 										//所有的数字量状态
+	u8								UnloadCupFailTimes;	//卸杯失败次数
+	u8								CaptureCupFailTimes;//抓杯失败次数
+	u16								CurrCaptureCupNum; 	//当前抓取杯子数
+	COM_ListTypeDef 				CurrExecuteMotion; 	//当前执行组合动作
+	CanMotionDispatchCmd_TypeDef 	CurrExecuteCmd;    	//当前执行CAN指令
+	struct SysFaultRecord_ListNode_TypeDef *pNext;		//指向下一个节点
+}SysFaultRecord_ListNode_TypeDef;
+typedef SysFaultRecord_ListNode_TypeDef *FaultRecordList;  //故障记录列表子节点
 //XYZ和抓杯手指在组合状态的情况下运动情况的完成情况
 typedef union
 {
@@ -574,7 +577,6 @@ typedef struct
 	u16 CurrentCaptureNum;  			//当前已经抓取的杯子数
 	u32 X_Position;						//偏移坐标
 	u32 Y_Position;
-	u16 HappenFaultTimes;				//发生故障的次数
 }CapturePara_TpyeDef;
 //机器相对原点坐标
 typedef struct
@@ -681,10 +683,18 @@ void Mix_StartRun(MotionCmd_TypeDef Mix_WorkStation);
 void Wispy_Adjust(Package_Info *unpack_data);
 void CalMixMaxPoint(u8 AllTime);
 
-void ComMotin_AssistHandle(void);
+u8 ComMotin_AssistHandle(void);
 void ClearMotionList(void);
 void FaultDetect(void);
 void CupCaptureStatusJudge(void);
+
+
+FaultRecordList FaultRecordListCreate(void);
+FaultRecordList FaultRecordAddNode(FaultRecordList pos);
+void InsertTargetListNode(FaultRecordList pHead,uint16_t TargetNode);
+void AddSpecifyNumNode(FaultRecordList pHead,uint16_t Num);
+void FaultRecordInit(void);
+
 
 
 //CAN总线组合动作调度

@@ -93,6 +93,21 @@ EXTITrigger_TypeDef pct_trigger_mode[8] = {PCT_1_TRIGGER_MODE, PCT_2_TRIGGER_MOD
 
 MOTOR_INFO motor_info[4];
 
+											
+//得到所有电机的当前状态
+u8 GetAllMotorStatus(void)
+{
+	u8 MotoStatus = 0x00;
+	if(motor_info[0].status != M_MOTION_FREE) 
+		MotoStatus |= 1<<0;
+	if(motor_info[1].status != M_MOTION_FREE)
+		MotoStatus |= 1<<2;
+	if(motor_info[2].status != M_MOTION_FREE)
+		MotoStatus |= 1<<4;
+	if(motor_info[3].status != M_MOTION_FREE)
+		MotoStatus |= 1<<6;
+	return MotoStatus;
+}	
 void Init(void)
 {
 	delay_init();	    	 //延时函数初始化
@@ -190,7 +205,11 @@ void CombineReset(void)
 	delay_ms(50);
 	Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[1],speed_up_table[MotorTab[1]],speed_down_table[MotorTab[1]]);
 	delay_ms(50);
-	Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[3],speed_up_table[MotorTab[3]],speed_down_table[MotorTab[3]]);
+	Motor_Init_Motion((MOTOR_CHIP_SELECT)MotorTab[3],speed_up_table[MotorTab[3]],speed_down_table[MotorTab[3]]);\
+//	if(!PCT_Get_Status(PCT_FINGER))  //没有杯子的话
+//	{
+//		FingerOpen(PCT_FINGER);
+//	}
 }
 void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 {
@@ -210,7 +229,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					Motion_Init_Return(MOTOR_1,FWD,PCT_NO,&MotorResetPrar[0],mindist_up_table[MOTOR_1],mindist_down_table[MOTOR_1]);
 					delay_ms(500);
 					while(motor_info[MOTOR_1].finish == NO_FINISH);
-					SysCurrSataus.HardStatus.UnitStatus.Pct_X= 1;
 				}
 			}
 			else if(!PCT_Get_Status(PCT1) == PCT_NO_TRIGGER)
@@ -221,7 +239,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					Motion_Output_Carbin(MOTOR_1,PCT_NO,FWD,&MotorResetPrar[0],mindist_up_table[MOTOR_1],mindist_down_table[MOTOR_1]);
 					delay_ms(500);
 					while(motor_info[MOTOR_1].finish == NO_FINISH);
-					SysCurrSataus.HardStatus.UnitStatus.Pct_X= 1;
 					//Motion_Init(MOTOR_1,FWD,&MotorResetPrar[0],speed_up_table[MOTOR_1],speed_down_table[MOTOR_1]);
 					//delay_ms(500);
 					//Motion_Init_Return(MOTOR_1,REV,X_AXIS_PCT,&MotorResetPrar[0],speed_up_table[MOTOR_1],speed_down_table[MOTOR_1]);
@@ -244,7 +261,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					Motion_Init_Return(MOTOR_2,REV,PCT_NO,&MotorResetPrar[1],mindist_up_table[MOTOR_2],mindist_down_table[MOTOR_2]);
 					delay_ms(500);
 					while(motor_info[MOTOR_2].finish == NO_FINISH);
-					SysCurrSataus.HardStatus.UnitStatus.Pct_Y= 1;
 				}
 			}
 			else if(!PCT_Get_Status(PCT2) == PCT_NO_TRIGGER)
@@ -255,7 +271,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					Motion_Output_Carbin(MOTOR_2,PCT_NO,REV,&MotorResetPrar[1],mindist_up_table[MOTOR_2],mindist_down_table[MOTOR_2]);
 					delay_ms(500);
 					while(motor_info[MOTOR_2].finish == NO_FINISH);
-					SysCurrSataus.HardStatus.UnitStatus.Pct_Y= 1;
 					//Motion_Init(MOTOR_2,FWD,&MotorResetPrar[1],speed_up_table[MOTOR_2],speed_down_table[MOTOR_2]);
 					//delay_ms(500);
 					//while(motor_info[MOTOR_2].status != M_MOTION_FREE);
@@ -285,7 +300,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 //					{
 //						delay_ms(10);
 //					}
-					SysCurrSataus.HardStatus.UnitStatus.Pct_Z= 1;
 				}
 			}
 			else if(!PCT_Get_Status(PCT3) == PCT_NO_TRIGGER)
@@ -299,7 +313,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					{
 						delay_ms(10);
 					}
-					SysCurrSataus.HardStatus.UnitStatus.Pct_Z= 1;
 					//Motion_Init(MOTOR_3,FWD,&MotorResetPrar[2],speed_up_table[MOTOR_3],speed_down_table[MOTOR_3]);
 					//delay_ms(500);
 					//while(motor_info[MOTOR_3].status != M_MOTION_FREE);
@@ -322,7 +335,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					Motion_Init_Return(MOTOR_4,REV,PCT_NO,&MotorResetPrar[3],speed_up_table[MOTOR_4],speed_down_table[MOTOR_4]);
 					delay_ms(500);
 					while(motor_info[MOTOR_4].finish == NO_FINISH);
-					SysCurrSataus.HardStatus.UnitStatus.Pct_Mix= 1;
 				}
 			}
 			else if(PCT_Get_Status(PCT4) == PCT_NO_TRIGGER)
@@ -333,7 +345,6 @@ void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab)
 					Motion_Output_Carbin(MOTOR_4,PCT_NO,REV,&MotorResetPrar[3],speed_up_table[MOTOR_4],speed_down_table[MOTOR_4]);
 					delay_ms(500);
 					while(motor_info[MOTOR_4].finish == NO_FINISH);
-					SysCurrSataus.HardStatus.UnitStatus.Pct_Mix= 1;
 				}
 			}
 		}break;
@@ -481,6 +492,9 @@ void Create_Speed_Change_Table(u16 min_speed, u16 max_speed, u16 point_num)
 u8 G_UART1_Receive_Buff[UART1_RECEIVE_SIZE];
 u16 G_UART1_Receive_Count = 0;
 u8 G_UART1_Receive_OK = 0;
+u8 G_UART4_Receive_Buff[UART1_RECEIVE_SIZE];
+u16 G_UART4_Receive_Count = 0;
+u8 G_UART4_Receive_OK = 0;
 //----------------------------------------------//
 //在长度为len的缓存s1中查找s2存储	//
 //的内容，找到则返回s2内容在s1中//

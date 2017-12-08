@@ -52,6 +52,7 @@
 #define TEXT_FAULT_Z_TO_MIX 							"ERROR304"
 #define TEXT_FAULT_Z_TO_WASTE 							"ERROR305"
 #define TEXT_FAULT_FINGER_OPEN 							"ERROR306"
+#define TEXT_FAULT_CAPTURE_FAIL							"ERROR401"
 
 /********************************************************************************************/
 //非动作指令
@@ -140,8 +141,6 @@
 #define MIX_DEFAULT_MAX_PULSE     						3000		//混匀电机最大运行的脉冲数(最后相当于时间)
 
 #define CAN_MAIN_MACHINE_ID       						0X00		//CAN主机ID好
-#define REPORT_HARD_STAUS         						0XFA		//上报硬件状态
-#define REPORT_PARA_STAUS         						0XFB		//上报参数状态
 
 
 

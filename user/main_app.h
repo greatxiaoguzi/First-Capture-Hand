@@ -51,6 +51,8 @@ typedef struct
 void Init(void);
 u8 Can_Receiver_Analyze(Package_Info * data);
 void Create_Speed_Change_Table(u16 min_speed, u16 max_speed, u16 point_num)	;
+u8 GetAllMotorStatus(void);
+
 
 void CombineReset(void);
 void Motor_Init_Motion(MOTOR_CHIP_SELECT sel,u16 *AccTab,u16 *DecTab);

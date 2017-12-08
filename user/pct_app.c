@@ -11,8 +11,8 @@ u32 Z_Debug_Position;
 u8 GetAllPctStatus(void)
 {
 	u8 PctStatus;
-	PctStatus = (u8)PCT_8_STATUS<<7|(u8)PCT_7_STATUS<<6|(u8)PCT_6_STATUS<<5|(u8)PCT_5_STATUS<<4|
-	(u8)PCT_4_STATUS<<3|(u8)PCT_3_STATUS<<2|(u8)PCT_2_STATUS<<1|(u8)PCT_1_STATUS;
+	PctStatus = (!(u8)PCT_8_STATUS)<<7|(!(u8)PCT_7_STATUS)<<6|(u8)PCT_6_STATUS<<5|(u8)PCT_5_STATUS<<4|
+	(!(u8)PCT_4_STATUS)<<3|(u8)PCT_3_STATUS<<2|(u8)PCT_2_STATUS<<1|(u8)PCT_1_STATUS;
 	return PctStatus;
 }
 #if PCT_1_ENABLE == 1
@@ -133,17 +133,17 @@ void PCT_5_Handle(void)
 		delay_ms(10);
 		if(PCT_5_STATUS == 0)
 		{
-			switch(CurrComMotion)    //根据不同调度过程分别置位运行等级
-			{
-				case C0M_CUP_TO_HATCHIN:		CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
-				case C0M_CUP_TO_HATCHOUT:		CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
-				case C0M_HATCH_TO_MIX:			CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
-				case C0M_MIX_TO_HATCHIN:		CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_UNCATCHED_CUP;break;
-				case C0M_MIX_TO_HATCHOUT:		CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
-				case C0M_HATCH_TO_WASTE:		CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
-				case COM_UNLOAD_CUP:			CurrFaultLevel = LEVEL_LOWEST;CaptureFingerStatus = CAPTURE_FINGER_THROW_AWAY_CUP;break;
-				default:break;
-			}
+//			switch(CurrComMotion)    //根据不同调度过程分别置位运行等级
+//			{
+//				case C0M_CUP_TO_HATCHIN:		CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
+//				case C0M_CUP_TO_HATCHOUT:		CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
+//				case C0M_HATCH_TO_MIX:			CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
+//				case C0M_MIX_TO_HATCHIN:		CaptureFingerStatus = CAPTURE_FINGER_UNCATCHED_CUP;break;
+//				case C0M_MIX_TO_HATCHOUT:		CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
+//				case C0M_HATCH_TO_WASTE:		CaptureFingerStatus = CAPTURE_FINGER_CATCHED_CUP;break;
+//				case COM_UNLOAD_CUP:			CaptureFingerStatus = CAPTURE_FINGER_THROW_AWAY_CUP;break;
+//				default:break;
+//			}
 		}
 	}
 	else if(PCT_5_STATUS == 1)
@@ -151,19 +151,6 @@ void PCT_5_Handle(void)
 		delay_ms(10);
 		if(PCT_5_STATUS == 1)
 		{
-			switch(CurrComMotion)   //用于抓杯手杯子检测 
-			{
-				case C0M_CUP_TO_HATCHIN:		CurrFaultLevel = STOP_LEVLE;break;
-				case C0M_CUP_TO_HATCHOUT:		CurrFaultLevel = STOP_LEVLE;break;
-				case C0M_HATCH_TO_MIX:			CurrFaultLevel = STOP_LEVLE;break;
-				case C0M_MIX_TO_HATCHIN:		CurrFaultLevel = STOP_LEVLE;break;
-				case C0M_MIX_TO_HATCHOUT:		CurrFaultLevel = STOP_LEVLE;break;
-				case C0M_HATCH_TO_WASTE:		CurrFaultLevel = STOP_LEVLE;break;
-				case COM_OPEN_CABIN:			CurrFaultLevel = STOP_LEVLE;break;
-				case COM_CLOSE_CABIN:			CurrFaultLevel = STOP_LEVLE;break;
-				case COM_UNLOAD_CUP:			CurrFaultLevel = STOP_LEVLE;break;
-				default:break;
-			}
 		}
 	}
 }
@@ -177,11 +164,7 @@ void PCT_6_Handle(void)
 		delay_ms(10);
 		if(PCT_6_STATUS == 0)
 		{
-			switch(CurrComMotion)   //用于抓杯手杯子检测
-			{
-				case C0M_HATCH_TO_WASTE:		CurrFaultLevel = LEVEL_LOWEST;break;
-				default:break;
-			}
+			
 		}
 	}
 	else if(PCT_6_STATUS == 1)
@@ -189,11 +172,7 @@ void PCT_6_Handle(void)
 		delay_ms(10);
 		if(PCT_6_STATUS == 1)
 		{
-			switch(CurrComMotion)   //用于抓杯手杯子检测
-			{
-				case C0M_HATCH_TO_WASTE:		CurrFaultLevel = STOP_LEVLE;break;
-				default:break;
-			}
+		
 		}
 	}
 }
@@ -207,11 +186,7 @@ void PCT_7_Handle(void)
 		delay_ms(10);
 		if(PCT_7_STATUS == 0)
 		{
-			switch(CurrComMotion)   //用于抓杯手杯子检测
-			{
-				case C0M_HATCH_TO_WASTE:		CurrFaultLevel = LEVEL_LOWEST;break;
-				default:break;
-			}
+			
 		}
 	}
 	else if(PCT_7_STATUS == 1)
@@ -219,16 +194,11 @@ void PCT_7_Handle(void)
 		delay_ms(10);
 		if(PCT_7_STATUS == 1)
 		{
-			switch(CurrComMotion)   //用于抓杯手杯子检测
-			{
-				case C0M_HATCH_TO_WASTE:		CurrFaultLevel = STOP_LEVLE;break;
-				default:break;
-			}
+			
 		}
 	}
 }
 #endif
-extern SysStatusInquiry_TypeDef SysCurrSataus;
 //抽屉光电开关
 #if PCT_8_ENABLE
 void PCT_8_Handle(void)  //抽屉光电开关用
@@ -239,13 +209,6 @@ void PCT_8_Handle(void)  //抽屉光电开关用
 		delay_us(10);
 		if(PCT_8_STATUS == 0)
 		{
-			switch(CurrComMotion)
-			{
-				case COM_OPEN_CABIN: CurrFaultLevel = LEVEL_LOWEST;break;
-				case COM_CLOSE_CABIN: CurrFaultLevel = LEVEL_LOWEST;break;
-				default:break;
-			}
-			SysCurrSataus.HardStatus.UnitStatus.Pct_Cabin = 1;
 			CabinorEnable(CABIN_ELECTM_ENABLE);
 		}
 	}
@@ -253,14 +216,7 @@ void PCT_8_Handle(void)  //抽屉光电开关用
 	{
 		delay_ms(10);
 		if(PCT_8_STATUS == 1)
-		{
-			switch(CurrComMotion)
-			{
-				case COM_OPEN_CABIN: CurrFaultLevel = PAUSE_LEVEL;break;
-				case COM_CLOSE_CABIN: CurrFaultLevel = PAUSE_LEVEL;break;
-				default:break;
-			}
-		}
+			CurrFaultLevel = PAUSE_LEVEL;
 	}
 }
 #endif
